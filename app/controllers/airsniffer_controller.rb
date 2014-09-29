@@ -51,10 +51,7 @@ class AirsnifferController < ApplicationController
   end
   
   def wxhandler_get
-    #ret=check_wx_sig
-    @myId='123'
-    @uId='abc'
-    ret=test_msg_handler(params[:cmd])
+    ret=check_wx_sig
     render plain: ret
   end
   
