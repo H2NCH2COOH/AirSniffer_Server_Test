@@ -131,9 +131,23 @@ class AirsnifferController < ApplicationController
           id=$1
           name=$2
           p=PreRegDevice.find_by(dev_id: id)
-          Device.create(dev_id: p.dev_id,feed_id: p.feed_id,api_key: p.api_key,owner: @uId,name: name)
-          p.destroy
-          return wx_text_responce_builder("设备\"#{name}\"注册成功")
+          if p.nil?
+            return wx_text_responce_builder("设备不存在或已注册")
+          else
+            Device.create(dev_id: p.dev_id,feed_id: p.feed_id,api_key: p.api_key,owner: @uId,name: name)
+            p.destroy
+            return wx_text_responce_builder("设备\"#{name}\"注册成功")
+          end
+        when /\A移除[[:space:]]([[:digit:]]+)\Z/
+          id=$1
+          p=Device.find_by(dev_id: id,owner: uId)
+          if p.nil?
+            return wx_text_responce_builder("设备不存在或未注册")
+          else
+            PreRegDevice.create(dev_id: p.dev_id,feed_id: p.feed_id,api_key: p.api_key)
+            p.destroy
+            return wx_text_responce_builder("移除成功")
+          end
         when /\A(查看|查询|当前|查|看|最新)\Z/
           text="当前数据：\n"
           @devs.each do |dev|
