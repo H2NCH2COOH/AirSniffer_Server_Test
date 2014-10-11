@@ -132,7 +132,7 @@ class AirsnifferController < ApplicationController
           name=$2
           p=PreRegDevice.find_by(dev_id: id)
           if p.nil?
-            return wx_text_responce_builder("设备不存在")
+            return wx_text_responce_builder('设备不存在')
           else
             Device.create(dev_id: p.dev_id,feed_id: p.feed_id,api_key: p.api_key,owner: @uId,name: name)
             return wx_text_responce_builder("设备\"#{name}\"注册成功")
@@ -141,23 +141,31 @@ class AirsnifferController < ApplicationController
           id=$1
           p=Device.find_by(dev_id: id,owner: @uId)
           if p.nil?
-            return wx_text_responce_builder("设备不存在或未注册")
+            return wx_text_responce_builder('设备不存在或未注册')
           else
             p.destroy
-            return wx_text_responce_builder("移除成功")
+            return wx_text_responce_builder('移除成功')
           end
-        when /\A(查看|查询|当前|查|看|最新)\Z/
+        when /\A(查看|查询|当前|查|看|最新)((?:[[:space:]].+?)*)\Z/
+          args=$2.strip.split
+          
+          if @devs.size==0
+            return wx_text_responce_builder('没有注册设备')
+          end
+          
           text="当前数据：\n"
           @devs.each do |dev|
             url=URI.parse("http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25")
             req=Net::HTTP::Get.new(url.to_s)
             req["X-ApiKey"]=dev.api_key
             res=Net::HTTP.start(url.host,url.port){|http|http.request(req)}
-            cvalue=JSON.parse(res.body)['current_value'].strip
-            text+="#{dev.name}: #{cvalue}\n"
+            cvalue=JSON.parse(res.body)['current_value']
+            text+="#{dev.name}: #{cvalue.strip}\n" unless cvalue.nil?
           end
           return wx_text_responce_builder(text.rstrip)
-        when /\A(历史|图|曲线)\Z/
+        when /\A(历史|图|曲线)((?:[[:space:]].+?)*)\Z/
+          args=$2.strip.split
+          
           return wx_text_responce_builder('施工中……')
         else
           return wx_text_responce_builder('？')
