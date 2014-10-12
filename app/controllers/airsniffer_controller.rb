@@ -197,7 +197,7 @@ class AirsnifferController < ApplicationController
           @devs.each do |dev|
             begin
               logger.debug "Graph for #{dev.dev_id}_#{dev.name}"
-              url=URI.parse("http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25.png?t=PM2.5&g=true&b=true&timezone=8&scale=manual&min=0&max=20000&duration=12hours")
+              url=URI.parse("http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25.png?t=#{dev.name}&g=true&b=true&timezone=8&scale=manual&min=0&max=20000&duration=12hours")
               req=Net::HTTP::Get.new url.to_s
               req["X-ApiKey"]=dev.api_key
               res=Net::HTTP.start(url.host,url.port){|http|http.request req}
