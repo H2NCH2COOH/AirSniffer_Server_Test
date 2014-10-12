@@ -2,6 +2,8 @@ Rails.application.routes.draw do
   get 'airsniffer/wxhandler' => 'airsniffer#wxhandler_get'
   post 'airsniffer/wxhandler'
   
+  get 'airsniffer/graph/:uid/:id' => 'airsniffer#graph'
+  
   get 'airsniffer/pre_register'
   
   get 'airsniffer/pre_registered_dev'
