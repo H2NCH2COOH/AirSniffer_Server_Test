@@ -11,6 +11,26 @@ end
 
 class AirsnifferController < ApplicationController
   TOKEN='AirSniffer'
+  KEY='7328956043759284757545839'
+  
+  def pre_registered_dev
+    id=params[:id]
+    key=params[:key]
+    
+    if (id.nil? or key.nil?) and not key.eql? KEY
+      render plain: 'args error!'
+      return
+    end
+    
+    p=PreRegDevice.find_by id: id
+    if p.nil?
+      ret='Device not found'
+    else
+      ret="{\"dev_id\"=\"#{p.dev_id}\",\"feed_id\"=\"#{p.feed_id}\",\"api_key\"=\"#{p.api_key}\"}"
+    end
+    
+    render plain: ret
+  end
   
   def pre_register
     id=params[:id]
@@ -130,9 +150,9 @@ class AirsnifferController < ApplicationController
         when /\A注册[[:space:]]([[:digit:]]+)[[:space:]](.+)\Z/
           id=$1
           name=$2
-          p=PreRegDevice.find_by(dev_id: id)
+          p=PreRegDevice.find_by dev_id: id
           if p.nil?
-            return wx_text_responce_builder('设备不存在')
+            return wx_text_responce_builder '设备不存在'
           else
             Device.create(dev_id: p.dev_id,feed_id: p.feed_id,api_key: p.api_key,owner: @uId,name: name)
             return wx_text_responce_builder("设备\"#{name}\"注册成功")
@@ -141,16 +161,16 @@ class AirsnifferController < ApplicationController
           id=$1
           p=Device.find_by(dev_id: id,owner: @uId)
           if p.nil?
-            return wx_text_responce_builder('设备不存在或未注册')
+            return wx_text_responce_builder '设备不存在或未注册'
           else
             p.destroy
-            return wx_text_responce_builder('移除成功')
+            return wx_text_responce_builder '移除成功'
           end
         when /\A(查看|查询|当前|查|看|最新)((?:[[:space:]].+?)*)\Z/
           args=$2.strip.split
           
           if @devs.size==0
-            return wx_text_responce_builder('没有注册设备')
+            return wx_text_responce_builder '没有注册设备'
           end
           
           text="当前数据：\n"
@@ -158,7 +178,7 @@ class AirsnifferController < ApplicationController
             url=URI.parse("http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25")
             req=Net::HTTP::Get.new url.to_s
             req["X-ApiKey"]=dev.api_key
-            res=Net::HTTP.start(url.host,url.port){|http|http.request(req)}
+            res=Net::HTTP.start(url.host,url.port){|http|http.request req}
             cvalue=JSON.parse(res.body)['current_value']
             text+="#{dev.name}: #{cvalue.strip}\n" unless cvalue.nil?
           end
@@ -180,10 +200,10 @@ class AirsnifferController < ApplicationController
               url=URI.parse("http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25.png?t=PM2.5&g=true&b=true&timezone=8&scale=manual&min=0&max=20000&duration=12hours")
               req=Net::HTTP::Get.new url.to_s
               req["X-ApiKey"]=dev.api_key
-              res=Net::HTTP.start(url.host,url.port){|http|http.request(req)}
+              res=Net::HTTP.start(url.host,url.port){|http|http.request req}
               
               lurl="/dimage/asgraph/#{@uId}_#{Time.now.to_i}_#{num}.png"
-              File.open(Rails.root.to_s+'/public'+lurl,'wb'){|file|file.write(res.body)}
+              File.open(Rails.root.to_s+'/public'+lurl,'wb'){|file|file.write res.body}
               
               num+=1
               texts<<"#{dev.name}"
@@ -195,13 +215,13 @@ class AirsnifferController < ApplicationController
           if num>0
             return wx_article_responce_builder(num,texts,urls)
           else
-            return wx_text_responce_builder('未能获得曲线，请重试')
+            return wx_text_responce_builder '未能获得曲线，请重试'
           end
         else
-          return wx_text_responce_builder('？')
+          return wx_text_responce_builder '？'
       end
     rescue
-      return wx_text_responce_builder('出错！')
+      return wx_text_responce_builder '出错！'
     end
   end
   
