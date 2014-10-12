@@ -176,19 +176,20 @@ class AirsnifferController < ApplicationController
           
           @devs.each do |dev|
             begin
-              url=URI.parse("https://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25.png?t=PM2.5&g=true&b=true&timezone=8&scale=manual&min=0&max=20000&duration=6hours")
+              logger.debug "Graph for #{dev.dev_id}_#{dev.name}"
+              url=URI.parse("http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25.png?t=PM2.5&g=true&b=true&timezone=8&scale=manual&min=0&max=20000&duration=12hours")
               req=Net::HTTP::Get.new url.to_s
               req["X-ApiKey"]=dev.api_key
               res=Net::HTTP.start(url.host,url.port){|http|http.request(req)}
               
-              lurl="/dimage/asgraph/#{@uId}_#{Time.now.to_i}.png"
-              File.open(Rails.root.join('public',lurl),'wb'){|file|file.write(res.body)}
+              lurl="/dimage/asgraph/#{@uId}_#{Time.now.to_i}_#{num}.png"
+              File.open(Rails.root.to_s+'/public'+lurl,'wb'){|file|file.write(res.body)}
               
               num+=1
               texts<<"#{dev.name}"
               urls<<"http://115.29.178.169"+lurl
-            rescue
-              #NOP
+            rescue Exception=>e
+              logger.error 'Exception: '+e.to_s
             end
           end
           if num>0
