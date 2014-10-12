@@ -156,7 +156,7 @@ class AirsnifferController < ApplicationController
           text="当前数据：\n"
           @devs.each do |dev|
             url=URI.parse("http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25")
-            req=Net::HTTP::Get.new(url.to_s)
+            req=Net::HTTP::Get.new url.to_s
             req["X-ApiKey"]=dev.api_key
             res=Net::HTTP.start(url.host,url.port){|http|http.request(req)}
             cvalue=JSON.parse(res.body)['current_value']
@@ -166,7 +166,36 @@ class AirsnifferController < ApplicationController
         when /\A(历史|图|曲线)((?:[[:space:]].+?)*)\Z/
           args=$2.strip.split
           
-          return wx_text_responce_builder('施工中……')
+          if @devs.size==0
+            return wx_text_responce_builder('没有注册设备')
+          end
+          
+          num=0
+          texts=[]
+          urls=[]
+          
+          @devs.each do |dev|
+            begin
+              url=URI.parse("https://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25.png?t=PM2.5&g=true&b=true&timezone=8&scale=manual&min=0&max=20000&duration=6hours")
+              req=Net::HTTP::Get.new url.to_s
+              req["X-ApiKey"]=dev.api_key
+              res=Net::HTTP.start(url.host,url.port){|http|http.request(req)}
+              
+              lurl="/dimage/asgraph/#{@uId}_#{Time.now.to_i}.png"
+              File.open(Rails.root.join('public',lurl),'wb'){|file|file.write(res.body)}
+              
+              num+=1
+              texts<<"#{dev.name}"
+              urls<<"http://115.29.178.169"+lurl
+            rescue
+              #NOP
+            end
+          end
+          if num>0
+            return wx_article_responce_builder(num,texts,urls)
+          else
+            return wx_text_responce_builder('未能获得曲线，请重试')
+          end
         else
           return wx_text_responce_builder('？')
       end
