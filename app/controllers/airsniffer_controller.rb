@@ -22,7 +22,7 @@ class AirsnifferController < ApplicationController
       return
     end
     
-    p=PreRegDevice.find_by id: id
+    p=PreRegDevice.find_by dev_id: id
     if p.nil?
       ret='Device not found'
     else
