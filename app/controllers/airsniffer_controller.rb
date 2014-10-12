@@ -150,6 +150,12 @@ class AirsnifferController < ApplicationController
         when /\A注册[[:space:]]([[:digit:]]+)[[:space:]](.+)\Z/
           id=$1
           name=$2
+          
+          d=Device.find_by id: id
+          if not d.nil?
+            return wx_text_responce_builder '设备已注册'
+          end
+          
           p=PreRegDevice.find_by dev_id: id
           if p.nil?
             return wx_text_responce_builder '设备不存在'
