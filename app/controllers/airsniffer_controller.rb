@@ -151,7 +151,7 @@ class AirsnifferController < ApplicationController
           id=$1
           name=$2
           
-          d=Device.find_by id: id
+          d=Device.find_by(dev_id: id,owner: @uId)
           if not d.nil?
             return wx_text_responce_builder '设备已注册'
           end
