@@ -170,7 +170,7 @@ class AirsnifferController < ApplicationController
     req["X-ApiKey"]=dev.api_key
     res=Net::HTTP.start(url.host,url.port){|http|http.request req}
     
-    send_data res.body, type: image.content_type, disposition: 'inline'
+    send_data res.body, type: res.content_type, disposition: 'inline'
   end
   
   def test_msg_handler(content)
@@ -233,24 +233,12 @@ class AirsnifferController < ApplicationController
           urls=[]
           
           @devs.each do |dev|
-            begin
-              logger.debug "Graph for #{dev.dev_id}_#{dev.name}"
-              url=URI.encode("http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25.png?t=#{dev.name}&g=true&b=true&timezone=8&scale=manual&min=0&max=20000&duration=12hours")
-              url=URI.parse url
-              req=Net::HTTP::Get.new url.to_s
-              req["X-ApiKey"]=dev.api_key
-              res=Net::HTTP.start(url.host,url.port){|http|http.request req}
-              
-              lurl="/dimage/asgraph/#{@uId}_#{Time.now.to_i}_#{num}.png"
-              File.open(Rails.root.to_s+'/public'+lurl,'wb'){|file|file.write res.body}
-              
-              num+=1
-              texts<<"#{dev.name}"
-              urls<<"http://115.29.178.169"+lurl
-            rescue Exception=>e
-              logger.error 'Exception: '+e.to_s
-            end
+            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&scale=manual&min=0&max=20000&duration=12hours")
+            num+=1
+            texts<<"#{dev.name}"
+            urls<<url
           end
+          
           if num>0
             return wx_article_responce_builder num, texts, urls
           else
