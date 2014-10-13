@@ -54,14 +54,14 @@ class AirsnifferController < ApplicationController
     
     doc=REXML::Document.new body
     
-    @myId=REXML::XPath.first(doc,'/xml/ToUserName').text
-    @uId=REXML::XPath.first(doc,'/xml/FromUserName').text
-    msgType=REXML::XPath.first(doc,'/xml/MsgType').text
+    @myId=REXML::XPath.first(doc, '/xml/ToUserName').text
+    @uId=REXML::XPath.first(doc, '/xml/FromUserName').text
+    msgType=REXML::XPath.first(doc, '/xml/MsgType').text
     
     @devs=Device.where owner: @uId
     
     if msgType.eql? 'text'
-      content=REXML::XPath.first(doc,'/xml/Content').text
+      content=REXML::XPath.first(doc, '/xml/Content').text
       ret=test_msg_handler content
       render plain: ret
     else
@@ -159,7 +159,7 @@ class AirsnifferController < ApplicationController
     end
     
     url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25.png?"
-    params.each do |key,value|
+    params.each do |key, value|
       url+=(key+'='+value+'&')
     end
     url+="t=#{dev.name}"
@@ -168,7 +168,7 @@ class AirsnifferController < ApplicationController
     url=URI.parse url
     req=Net::HTTP::Get.new url.to_s
     req["X-ApiKey"]=dev.api_key
-    res=Net::HTTP.start(url.host,url.port){|http|http.request req}
+    res=Net::HTTP.start(url.host, url.port){|http|http.request req}
     
     send_data res.body, type: res.content_type, disposition: 'inline'
   end
@@ -216,7 +216,7 @@ class AirsnifferController < ApplicationController
             url=URI.parse url
             req=Net::HTTP::Get.new url.to_s
             req["X-ApiKey"]=dev.api_key
-            res=Net::HTTP.start(url.host,url.port){|http|http.request req}
+            res=Net::HTTP.start(url.host, url.port){|http|http.request req}
             cvalue=JSON.parse(res.body)['current_value']
             text+="#{dev.name}: #{cvalue.strip}\n" unless cvalue.nil?
           end
@@ -233,7 +233,8 @@ class AirsnifferController < ApplicationController
           urls=[]
           
           @devs.each do |dev|
-            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&scale=manual&min=0&max=20000&duration=12hours")
+            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=12hours")
+            #&scale=manual&min=0&max=20000
             num+=1
             texts<<"#{dev.name}"
             urls<<url
