@@ -62,7 +62,7 @@ class AirsnifferController < ApplicationController
     
     if msgType.eql? 'text'
       content=REXML::XPath.first(doc, '/xml/Content').text
-      ret=test_msg_handler content
+      ret=text_msg_handler content
       render plain: ret
     else
       #DO Nothing
@@ -173,7 +173,7 @@ class AirsnifferController < ApplicationController
     send_data res.body, type: res.content_type, disposition: 'inline'
   end
   
-  def test_msg_handler(content)
+  def text_msg_handler(content)
     begin
       case content
         when /\A(添加|添加设备|注册|设备注册)\Z/
@@ -233,7 +233,7 @@ class AirsnifferController < ApplicationController
           urls=[]
           
           @devs.each do |dev|
-            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=12hours")
+            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=24hours")
             #&scale=manual&min=0&max=20000
             num+=1
             texts<<"#{dev.name}"
