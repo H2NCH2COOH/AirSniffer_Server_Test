@@ -224,11 +224,13 @@ class AirsnifferController < ApplicationController
         when /\A(历史|图|曲线)((?:[[:space:]].+?)*)\Z/
           args=$2.strip.split
           
-          if args[0]
-            m=/\A([[:digit:]]+hour|day|week|month|小时|天|周|月)s?\Z/.match args[0]
-            dur=m[1]
-          else
-            dur='1day'
+          dur='1day'
+          
+          if args
+            if args[0]
+              m=/\A([[:digit:]]+hour|day|week|month|小时|天|周|月)s?\Z/.match args[0]
+              dur=m[1]
+            end
           end
           
           if @devs.size==0
