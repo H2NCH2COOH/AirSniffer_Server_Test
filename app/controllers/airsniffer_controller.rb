@@ -183,7 +183,7 @@ class AirsnifferController < ApplicationController
           name=$2
           
           d=Device.find_by dev_id: id, owner: @uId
-          if not d.nil?
+          if d
             return wx_text_responce_builder '设备已注册'
           end
           
@@ -228,8 +228,16 @@ class AirsnifferController < ApplicationController
           
           if args
             if args[0]
-              m=/\A([[:digit:]]+hour|day|week|month|小时|天|周|月)s?\Z/.match args[0]
-              dur=m[1]
+              m=/\A([[:digit:]]+)(hour|day|week|month|小时|天|周|月)s?\Z/.match args[0]
+              if m
+                dict={'小时'=>'hour','天'=>'day','周'=>'week','月'=>'month'}
+                if dict.has_key? m[2]
+                  u=dict[m[2]]
+                else
+                  u=m[2]
+                end
+                dur=m[1]+u
+              end
             end
           end
           
