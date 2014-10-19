@@ -224,6 +224,13 @@ class AirsnifferController < ApplicationController
         when /\A(历史|图|曲线)((?:[[:space:]].+?)*)\Z/
           args=$2.strip.split
           
+          if args[0]
+            m=/\A([[:digit:]]+hour|day|week|month|小时|天|周|月)s?\Z/.match args[0]
+            dur=m[1]
+          else
+            dur='1day'
+          end
+          
           if @devs.size==0
             return wx_text_responce_builder '没有注册设备'
           end
@@ -232,8 +239,8 @@ class AirsnifferController < ApplicationController
           texts=[]
           urls=[]
           
-          @devs.each do |dev|
-            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=24hours")
+          @devs.first(10).each do |dev| #10 is weixin limit for article responce
+            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=#{dur}&end=#{Time.now.strftime '%FT%RZ%z'}")
             #&scale=manual&min=0&max=20000
             num+=1
             texts<<"#{dev.name}"
