@@ -250,7 +250,7 @@ class AirsnifferController < ApplicationController
           urls=[]
           
           @devs.first(10).each do |dev| #10 is weixin limit for article responce
-            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=#{dur}&end=#{Time.now.strftime '%FT%RZ%z'}")
+            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=#{dur}&end=#{Time.now.utc.strftime '%FT%RZ'}")
             #&scale=manual&min=0&max=20000
             num+=1
             texts<<"#{dev.name}"
