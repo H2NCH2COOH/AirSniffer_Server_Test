@@ -255,7 +255,8 @@ class AirsnifferController < ApplicationController
         else
           return wx_text_responce_builder '？'
       end
-    rescue
+    rescue Exception=>e
+      logger.error '[Exception]: '+e.to_s
       return wx_text_responce_builder '出错！'
     end
   end
