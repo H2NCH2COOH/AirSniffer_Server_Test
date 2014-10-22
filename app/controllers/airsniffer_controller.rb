@@ -2,6 +2,7 @@ require 'digest/sha1'
 require 'rexml/document'
 require 'net/http'
 require 'json'
+require 'lazy_high_charts'
 
 class PreRegDevice < ActiveRecord::Base
 end
@@ -140,6 +141,45 @@ class AirsnifferController < ApplicationController
     eos
     
     return res
+  end
+  
+  def chart
+    id=params.delete :id
+    uid=params.delete :uid
+    
+    if id.nil? or uid.nil?
+      redirect_to '/404'
+      return
+    end
+    
+    dev=Device.find_by dev_id: id, owner: uid
+    
+    if dev.nil?
+      redirect_to '/404'
+      return
+    end
+    
+    url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?duration=6hour&interval=0"
+    url=URI.encode url
+    url=URI.parse url
+    req=Net::HTTP::Get.new url.to_s
+    req["X-ApiKey"]=dev.api_key
+    res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+    j=JSON.parse res.body
+    
+    data=[]
+    j['datapoints'].each do |d|
+      v=d['value']
+      t=d['at']
+      x=DateTime.strptime t, '%FT%T.%LZ'
+      data<<[x.to_time.to_i,v.to_i]
+    end
+    
+    @chart=LazyHighCharts::HighChart.new('graph') do |f|
+      f.title(text: dev.name)
+      f.rangeSelector()
+      f.series(name: "PM2.5",data: data)
+    end
   end
   
   def graph
