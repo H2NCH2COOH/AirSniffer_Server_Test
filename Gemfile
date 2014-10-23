@@ -40,3 +40,6 @@ gem 'tzinfo-data', platforms: [:mingw, :mswin]
 
 #Use lazy_high_charts
 gem 'lazy_high_charts'
+
+# gem 'rails_serve_static_assets'
+# gem 'rails_stdout_logging'
