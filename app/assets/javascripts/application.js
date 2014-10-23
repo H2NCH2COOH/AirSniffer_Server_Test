@@ -15,3 +15,4 @@
 //= require turbolinks
 //= require_tree .
 //= require highcharts/highstock
+//= require highcharts/stock/modules/exporting

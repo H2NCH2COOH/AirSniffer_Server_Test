@@ -112,16 +112,16 @@ class AirsnifferController < ApplicationController
     return res
   end
   
-  def wx_article_responce_builder(num,texts,urls)
+  def wx_article_responce_builder(articles)
     time=Time.now.to_i
     
     items=''
-    for i in 0...num
+    articles.each do |a|
       items+=<<-eos
     <item>
-      <Title><![CDATA[#{texts[i]}]]></Title> 
-      <PicUrl><![CDATA[#{urls[i]}]]></PicUrl>
-      <Url><![CDATA[#{urls[i]}]]></Url>
+      <Title><![CDATA[#{a[:text]}]]></Title> 
+      #{"<PicUrl><![CDATA[#{a[:pic]}]]></PicUrl>" if a[:pic]}
+      <Url><![CDATA[#{a[:url]}]]></Url>
     </item>
     
       eos
@@ -133,7 +133,7 @@ class AirsnifferController < ApplicationController
   <FromUserName><![CDATA[#{@myId}]]></FromUserName>
   <CreateTime>#{time}</CreateTime>
   <MsgType><![CDATA[news]]></MsgType>
-  <ArticleCount>#{num}</ArticleCount>
+  <ArticleCount>#{articles.size}</ArticleCount>
   <Articles>
 #{items}
   </Articles>
@@ -159,26 +159,46 @@ class AirsnifferController < ApplicationController
       return
     end
     
-    url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?duration=6hour&interval=0"
-    url=URI.encode url
-    url=URI.parse url
-    req=Net::HTTP::Get.new url.to_s
-    req["X-ApiKey"]=dev.api_key
-    res=Net::HTTP.start(url.host, url.port){|http|http.request req}
-    j=JSON.parse res.body
-    
     data=[]
-    j['datapoints'].each do |d|
-      v=d['value']
-      t=d['at']
-      x=DateTime.strptime t, '%FT%T.%LZ'
-      data<<[x.to_time.to_i,v.to_i]
+    endT=Time.now.utc
+    sixH=6*60*60
+    maxH=30*24
+    
+    for i in 0..(maxH/6) do
+      url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?duration=6hour&interval=0&end=#{endT.strftime '%FT%RZ'}"
+      url=URI.encode url
+      url=URI.parse url
+      req=Net::HTTP::Get.new url.to_s
+      req["X-ApiKey"]=dev.api_key
+      res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+      j=JSON.parse res.body
+      
+      break unless j.has_key? 'datapoints'
+      
+      td=[]
+      j['datapoints'].each do |d|
+        v=d['value']
+        t=d['at']
+        x=DateTime.strptime t, '%FT%T.%LZ'
+        td<<[x.to_time.to_i*1000, v.to_i]
+      end
+      data=td.concat data
+      endT-=sixH
     end
     
+    @dataCount=data.size
     @chart=LazyHighCharts::HighChart.new('graph') do |f|
-      f.title(text: dev.name)
-      f.rangeSelector()
-      f.series(name: "PM2.5",data: data)
+      f.title text: dev.name
+      f.yAxis min: 0
+      f.rangeSelector(
+        buttons: [
+          {type: 'day', count: 1, text: '1d'},
+          {type: 'week', count: 1, text: '1w'},
+          {type: 'month', count: 1, text: '1m'}
+        ],
+        selected: 0
+      )
+      f.series name: "PM2.5", data: data
     end
   end
   
@@ -285,20 +305,37 @@ class AirsnifferController < ApplicationController
             return wx_text_responce_builder '没有注册设备'
           end
           
+          arts=[]
           num=0
-          texts=[]
-          urls=[]
           
           @devs.first(10).each do |dev| #10 is weixin limit for article responce
             url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=#{dur}&end=#{Time.now.utc.strftime '%FT%RZ'}")
             #&scale=manual&min=0&max=20000
             num+=1
-            texts<<"#{dev.name}"
-            urls<<url
+            arts<<{text: dev.name, pic: url, url: url}
           end
           
           if num>0
-            return wx_article_responce_builder num, texts, urls
+            return wx_article_responce_builder arts
+          else
+            return wx_text_responce_builder '未能获得曲线，请重试'
+          end
+        when /\Ahighstock\Z/
+          if @devs.size==0
+            return wx_text_responce_builder '没有注册设备'
+          end
+
+          arts=[]
+          num=0
+
+          @devs.first(10).each do |dev| #10 is weixin limit for article responce
+            url=URI.encode "http://115.29.178.169/airsniffer/chart/#{@uId}/#{dev.dev_id}"
+            num+=1
+            arts<<{text: dev.name, url: url}
+          end
+
+          if num>0
+            return wx_article_responce_builder arts
           else
             return wx_text_responce_builder '未能获得曲线，请重试'
           end
