@@ -4,12 +4,6 @@ require 'net/http'
 require 'json'
 require 'lazy_high_charts'
 
-class PreRegDevice < ActiveRecord::Base
-end
-
-class Device < ActiveRecord::Base
-end
-
 class AirsnifferController < ApplicationController
   TOKEN='AirSniffer'
   KEY='7328956043759284757545839'
@@ -86,7 +80,7 @@ class AirsnifferController < ApplicationController
       return 'ERROR!'
     end
     
-    array=[TOKEN,time,nonce].sort
+    array=[TOKEN, time, nonce].sort
     str=array.join
     hash=Digest::SHA1.hexdigest str
     if hash.eql? sig
