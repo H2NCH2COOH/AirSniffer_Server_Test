@@ -176,7 +176,7 @@ class AirsnifferController < ApplicationController
     end
     
     data=[]
-    
+    c=''
     File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
       c=f.read
     end
