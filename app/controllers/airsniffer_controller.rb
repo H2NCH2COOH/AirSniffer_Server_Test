@@ -180,7 +180,7 @@ class AirsnifferController < ApplicationController
     File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
       c=f.read
     end
-    
+    c.rstrip!
     c.insert 0, '['
     if c.end_with? ','
       c[-1]=']'
