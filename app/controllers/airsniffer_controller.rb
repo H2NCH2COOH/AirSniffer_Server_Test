@@ -45,7 +45,7 @@ class AirsnifferController < ApplicationController
     
     begin
       digest=OpenSSL::Digest::Digest.new 'sha1'
-      activation_code=OpenSSL::HMAC.hexdigest digest, [secret].pack("H*"), id
+      activation_code=OpenSSL::HMAC.hexdigest digest, [XIVELY_PRODUCT_SECRET].pack("H*"), id
       
       url="http://api.xively.com/v2/devices/#{activation_code}/activate"
       url=URI.encode url
@@ -55,9 +55,9 @@ class AirsnifferController < ApplicationController
       j=JSON.parse res.body
       
       PreRegDevice.where(dev_id: id).each{|p|p.destroy}
-      PreRegDevice.create dev_id: id, feed_id: j['feed_id'], api_key: j[apikey]
+      PreRegDevice.create dev_id: id, feed_id: j['feed_id'], api_key: j['apikey']
       
-      render plain: JSON.dump dev_id: id, feed_id: j['feed_id'], api_key: j[apikey]
+      render plain: JSON.dump(dev_id: id, feed_id: j['feed_id'], api_key: j['apikey'])
     rescue Exception=>e
       logger.error '[Exception]: '+e.to_s
       render plain: 'Error in pre-registration'
