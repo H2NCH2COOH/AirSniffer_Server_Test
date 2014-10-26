@@ -3,6 +3,7 @@ require 'rexml/document'
 require 'net/http'
 require 'json'
 require 'lazy_high_charts'
+require 'openssl'
 
 class Device < ActiveRecord::Base
 end
@@ -13,6 +14,7 @@ end
 class AirsnifferController < ApplicationController
   TOKEN='AirSniffer'
   KEY='7328956043759284757545839'
+  XIVELY_PRODUCT_SECRET='c71390d4339d6b2f4dc0c700e961f3da1e90c145'
   
   def pre_registered_dev
     id=params[:id]
@@ -35,18 +37,31 @@ class AirsnifferController < ApplicationController
   
   def pre_register
     id=params[:id]
-    feedId=params[:feed_id]
-    apiKey=params[:api_key]
     
-    if id.nil? or feedId.nil? or apiKey.nil?
+    if id.nil?
       render plain: 'ARG ERROR!'
       return
     end
     
-    PreRegDevice.where(dev_id: id).each{|p|p.destroy}
-    PreRegDevice.create dev_id: id, feed_id: feedId, api_key: apiKey
-    
-    render plain: 'pre-register success'
+    begin
+      digest=OpenSSL::Digest::Digest.new 'sha1'
+      activation_code=OpenSSL::HMAC.hexdigest digest, [secret].pack("H*"), id
+      
+      url="http://api.xively.com/v2/devices/#{activation_code}/activate"
+      url=URI.encode url
+      url=URI.parse url
+      req=Net::HTTP::Get.new url.to_s
+      res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+      j=JSON.parse res.body
+      
+      PreRegDevice.where(dev_id: id).each{|p|p.destroy}
+      PreRegDevice.create dev_id: id, feed_id: j['feed_id'], api_key: j[apikey]
+      
+      render plain: JSON.dump dev_id: id, feed_id: j['feed_id'], api_key: j[apikey]
+    rescue Exception=>e
+      logger.error '[Exception]: '+e.to_s
+      render plain: 'Error in pre-registration'
+    end
   end
   
   def wxhandler
