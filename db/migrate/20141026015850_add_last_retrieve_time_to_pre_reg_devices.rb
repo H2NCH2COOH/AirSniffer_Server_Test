@@ -1,28 +1,25 @@
-module Enumerable
-  def in_parallel
-    map{|x| Thread.new{ yield(x) } }.each{|t| t.join}
-  end
-}
+class PreRegDevice < ActiveRecord::Base
+end
 
 class AddLastRetrieveTimeToPreRegDevices < ActiveRecord::Migration
   def change
-    add_column :device, :last_retrieve_time, :string
+    add_column :pre_reg_devices, :last_retrieve_time, :string
     
-    t=Time.now.utc.strftime '%FT%RZ'
+    t=Time.now.utc
     
-    PreRegDevice.each do |dev|
-      dev.last_retrieve_time=t
+    PreRegDevice.find_each do |dev|
+      dev.last_retrieve_time=t.strftime '%FT%RZ'
       dev.save
     end
     
-    PreRegDevice.in_parallel do |dev|
+    PreRegDevice.find_each do |dev|
       data=[]
-      endT=dev.last_retrieve_time
+      endT=t
       sixH=6*60*60
       maxH=300*24
       
       for i in 0..(maxH/6) do
-        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?duration=6hour&interval=0&end=#{endT}"
+        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?duration=6hour&interval=0&end=#{endT.strftime '%FT%RZ'}"
         url=URI.encode url
         url=URI.parse url
         req=Net::HTTP::Get.new url.to_s
@@ -43,17 +40,11 @@ class AddLastRetrieveTimeToPreRegDevices < ActiveRecord::Migration
         endT-=sixH
       end
       
-      File.new(Rails.root.join('device_history', dev.dev_id), 'w') do |f|
+      File.open(Rails.root.join('device_history', dev.dev_id), 'w') do |f|
         data.each do |p|
           f.write "[#{p[0]},#{p[1]}],"
         end
       end
     end
-  end
-  
-  def retrieveDeviceHistory(dev)
-    
-    
-    return data
   end
 end

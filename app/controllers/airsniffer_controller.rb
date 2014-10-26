@@ -4,6 +4,12 @@ require 'net/http'
 require 'json'
 require 'lazy_high_charts'
 
+class Device < ActiveRecord::Base
+end
+
+class PreRegDevice < ActiveRecord::Base
+end
+
 class AirsnifferController < ApplicationController
   TOKEN='AirSniffer'
   KEY='7328956043759284757545839'
