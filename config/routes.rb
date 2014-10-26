@@ -5,6 +5,8 @@ Rails.application.routes.draw do
   get 'airsniffer/graph/:uid/:id'=>'airsniffer#graph'
   get 'airsniffer/chart/:uid/:id'=>'airsniffer#chart'
   
+  get 'airsniffer/data_retrieve'=>'airsniffer#data_retrieve'
+  
   get 'airsniffer/pre_register'
   
   get 'airsniffer/pre_registered_dev'
