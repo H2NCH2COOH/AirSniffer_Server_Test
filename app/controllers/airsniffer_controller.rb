@@ -223,7 +223,7 @@ class AirsnifferController < ApplicationController
           data<<[data[i][0]+300000,0]
           i+=1
         else
-          if data[i+1][0]-data[i][0]<400000
+          if data[i+1][0]-data[i][0]<700000
             i+=1
           else
             data.insert i+1,[data[i][0]+300000,0]
@@ -265,7 +265,7 @@ class AirsnifferController < ApplicationController
       data=[]
       endT=Time.now.utc
       sixH=6*60*60
-      maxH=duration*24
+      maxH=duration.to_i*24
         
       (maxH/6).times do
         url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?duration=6hour&interval=0&end=#{endT.strftime '%FT%RZ'}"
@@ -300,7 +300,7 @@ class AirsnifferController < ApplicationController
       
       render plain: "#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
     rescue Exception=>e
-        render plain: "Exception when retrieving data points for device_id: #{dev.id}\n\t#{e.to_s}\n"
+        render plain: "Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
     end
   end
   
@@ -340,7 +340,7 @@ class AirsnifferController < ApplicationController
         
         render plain: "#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
       rescue Exception=>e
-        render plain: "Exception when retrieving data points for device_id: #{dev.id}\n\t#{e.to_s}\n"
+        render plain: "Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
       end
     end
   end
