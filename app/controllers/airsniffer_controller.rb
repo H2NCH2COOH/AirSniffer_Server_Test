@@ -177,8 +177,10 @@ class AirsnifferController < ApplicationController
     
     data=[]
     c=''
-    File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
-      c=f.read
+    if Rails.root.join('device_history', dev.dev_id).exist?
+      File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
+        c=f.read
+      end
     end
     c.rstrip!
     c.insert 0, '['
