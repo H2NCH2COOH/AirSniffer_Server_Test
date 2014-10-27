@@ -220,13 +220,13 @@ class AirsnifferController < ApplicationController
       tEnd=Time.now.utc.to_i*1000-300000
       while data[i][0]<tEnd
         if data[i+1].nil?
-          data<<[data[i][0]+300000,data[i][0]]
+          data<<[data[i][0]+300000,data[i][1]]
           i+=1
         else
           if data[i+1][0]-data[i][0]<400000
             i+=1
           else
-            data.insert i+1,[data[i][0]+300000,data[i][0]]
+            data.insert i+1,[data[i][0]+300000,data[i][1]]
             i+=1
           end
         end
