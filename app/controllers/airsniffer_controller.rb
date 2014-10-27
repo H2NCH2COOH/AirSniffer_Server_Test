@@ -55,7 +55,7 @@ class AirsnifferController < ApplicationController
       j=JSON.parse res.body
       
       PreRegDevice.where(dev_id: id).each{|p|p.destroy}
-      PreRegDevice.create dev_id: id, feed_id: j['feed_id'], api_key: j['apikey']
+      PreRegDevice.create dev_id: id, feed_id: j['feed_id'], api_key: j['apikey'], last_retrieve_time: nil
       
       render plain: JSON.dump(dev_id: id, feed_id: j['feed_id'], api_key: j['apikey'])
     rescue Exception=>e
@@ -192,8 +192,11 @@ class AirsnifferController < ApplicationController
     j.each do |d|
       data<<[d[0],d[1]]
     end
-    
-    url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{pdev.last_retrieve_time}"
+    if pdev.last_retrieve_time.nil?
+      url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=6hour"
+    else
+      url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{pdev.last_retrieve_time}"
+    end
     url=URI.encode url
     url=URI.parse url
     req=Net::HTTP::Get.new url.to_s
@@ -229,8 +232,11 @@ class AirsnifferController < ApplicationController
   def data_retrieve
     PreRegDevice.find_each do |dev|
       data=[]
-      
-      url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{dev.last_retrieve_time}"
+      if dev.last_retrieve_time.nil?
+        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=6hour}"
+      else
+        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{dev.last_retrieve_time}"
+      end
       url=URI.encode url
       url=URI.parse url
       req=Net::HTTP::Get.new url.to_s
