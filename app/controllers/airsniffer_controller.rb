@@ -233,35 +233,41 @@ class AirsnifferController < ApplicationController
   
   def data_retrieve
     PreRegDevice.find_each do |dev|
-      data=[]
-      if dev.last_retrieve_time.nil?
-        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=6hour}"
-      else
-        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{dev.last_retrieve_time}"
-      end
-      url=URI.encode url
-      url=URI.parse url
-      req=Net::HTTP::Get.new url.to_s
-      req["X-ApiKey"]=dev.api_key
-      res=Net::HTTP.start(url.host, url.port){|http|http.request req}
-      j=JSON.parse res.body
-      
-      dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
-      dev.save
-      
-      next unless j.has_key? 'datapoints'
-        
-      j['datapoints'].each do |d|
-        v=d['value']
-        t=d['at']
-        x=DateTime.strptime t, '%FT%T.%LZ'
-        data<<[x.to_time.to_i*1000, v.to_i]
-      end
-      
-      File.open(Rails.root.join('device_history', dev.dev_id), 'a') do |f|
-        data.each do |p|
-          f.write "[#{p[0]},#{p[1]}],"
+      begin
+        data=[]
+        if dev.last_retrieve_time.nil?
+          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=6hour}"
+        else
+          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{dev.last_retrieve_time}"
         end
+        url=URI.encode url
+        url=URI.parse url
+        req=Net::HTTP::Get.new url.to_s
+        req["X-ApiKey"]=dev.api_key
+        res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+        j=JSON.parse res.body
+        
+        dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
+        dev.save
+        
+        next unless j.has_key? 'datapoints'
+          
+        j['datapoints'].each do |d|
+          v=d['value']
+          t=d['at']
+          x=DateTime.strptime t, '%FT%T.%LZ'
+          data<<[x.to_time.to_i*1000, v.to_i]
+        end
+        
+        File.open(Rails.root.join('device_history', dev.dev_id), 'a') do |f|
+          data.each do |p|
+            f.write "[#{p[0]},#{p[1]}],"
+          end
+        end
+        
+        render plain: "#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
+      rescue Exception=>e
+        render plain: "Exception when retrieving data points for device_id: #{dev.id}\n\t#{e.to_s}\n"
       end
     end
   end
