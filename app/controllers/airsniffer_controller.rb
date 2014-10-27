@@ -215,6 +215,24 @@ class AirsnifferController < ApplicationController
       end
     end
     
+    if data.size>0
+      i=0
+      tEnd=Time.now.utc.to_i*1000-300000
+      while data[i][0]<tEnd
+        if data[i+1].nil?
+          data<<[data[i][0]+300000,data[i][0]]
+          i+=1
+        else
+          if data[i+1][0]-data[i][0]<400000
+            i+=1
+          else
+            data.insert i+1,[data[i][0]+300000,data[i][0]]
+            i+=1
+          end
+        end
+      end
+    end
+      
     @dataCount=data.size
     @chart=LazyHighCharts::HighChart.new('graph') do |f|
       f.title text: dev.name
