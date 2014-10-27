@@ -451,32 +451,19 @@ class AirsnifferController < ApplicationController
           arts=[]
           num=0
           
-          @devs.first(10).each do |dev| #10 is weixin limit for article responce
-            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=#{dur}&end=#{Time.now.utc.strftime '%FT%RZ'}")
-            #&scale=manual&min=0&max=20000
-            num+=1
-            arts<<{text: dev.name, pic: url, url: url}
-          end
-          
-          if num>0
-            return wx_article_responce_builder arts
-          else
-            return wx_text_responce_builder '未能获得曲线，请重试'
-          end
-        when /\Ahighstock\Z/
-          if @devs.size==0
-            return wx_text_responce_builder '没有注册设备'
-          end
-
-          arts=[]
-          num=0
+#          @devs.first(10).each do |dev| #10 is weixin limit for article responce
+#            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=#{dur}&end=#{Time.now.utc.strftime '%FT%RZ'}")
+#            #&scale=manual&min=0&max=20000
+#            num+=1
+#            arts<<{text: dev.name, pic: url, url: url}
+#          end
 
           @devs.first(10).each do |dev| #10 is weixin limit for article responce
             url=URI.encode "http://115.29.178.169/airsniffer/chart/#{@uId}/#{dev.dev_id}"
             num+=1
             arts<<{text: dev.name, url: url}
           end
-
+          
           if num>0
             return wx_article_responce_builder arts
           else
