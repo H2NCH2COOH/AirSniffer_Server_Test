@@ -249,6 +249,61 @@ class AirsnifferController < ApplicationController
     end
   end
   
+  def force_retrieve
+    id=params[:id]
+    duration=params[:duration]
+    key=params[:key]
+    
+    if (id.nil? or duration.nil? or key.nil?) and not key.eql? KEY
+      render plain: 'ARG ERROR!'
+      return
+    end
+    
+    begin
+      dev=PreRegDevice.find_by dev_id: id
+      
+      data=[]
+      endT=Time.now.utc
+      sixH=6*60*60
+      maxH=duration*24
+        
+      (maxH/6).times do
+        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?duration=6hour&interval=0&end=#{endT.strftime '%FT%RZ'}"
+        url=URI.encode url
+        url=URI.parse url
+        req=Net::HTTP::Get.new url.to_s
+        req["X-ApiKey"]=dev.api_key
+        res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+        j=JSON.parse res.body
+        
+        next unless j.has_key? 'datapoints'
+        
+        td=[]
+        j['datapoints'].each do |d|
+          v=d['value']
+          t=d['at']
+          x=DateTime.strptime t, '%FT%T.%LZ'
+          td<<[x.to_time.to_i*1000, v.to_i]
+        end
+        data=td.concat data
+        endT-=sixH
+      end
+        
+      File.open(Rails.root.join('device_history', dev.dev_id), 'w') do |f|
+        data.each do |p|
+          f.write "[#{p[0]},#{p[1]}],"
+        end
+      end
+      
+      dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
+      dev.save
+      
+      render plain: "#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
+    rescue Exception=>e
+        render plain: "Exception when retrieving data points for device_id: #{dev.id}\n\t#{e.to_s}\n"
+    end
+  end
+  
   def data_retrieve
     PreRegDevice.find_each do |dev|
       begin
