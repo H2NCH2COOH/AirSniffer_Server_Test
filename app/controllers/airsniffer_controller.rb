@@ -239,9 +239,9 @@ class AirsnifferController < ApplicationController
       f.yAxis min: 0
       f.rangeSelector(
         buttons: [
-          {type: 'day', count: 1, text: '1d'},
-          {type: 'week', count: 1, text: '1w'},
-          {type: 'month', count: 1, text: '1m'}
+          {type: 'day', count: 1, text: '1天'},
+          {type: 'week', count: 1, text: '1周'},
+          {type: 'month', count: 1, text: '1月'}
         ],
         selected: 0
       )
