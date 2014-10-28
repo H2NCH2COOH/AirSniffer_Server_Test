@@ -341,6 +341,7 @@ class AirsnifferController < ApplicationController
         
         ret+="#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
       rescue Exception=>e
+        logger.error '[Exception] '+e.to_s
         ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
       end
     end
@@ -475,7 +476,7 @@ class AirsnifferController < ApplicationController
           return wx_text_responce_builder '？'
       end
     rescue Exception=>e
-      logger.error '[Exception]: '+e.to_s
+      logger.error '[Exception] '+e.to_s
       return wx_text_responce_builder '出错！'
     end
   end
