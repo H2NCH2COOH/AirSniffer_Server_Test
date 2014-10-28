@@ -259,9 +259,14 @@ class AirsnifferController < ApplicationController
       return
     end
     
+    ret=''
     begin
       dev=PreRegDevice.find_by dev_id: id
-      
+      if dev.nil?
+        render plain: "Device not found!"
+        return
+      end
+
       data=[]
       endT=Time.now.utc
       sixH=6*60*60
@@ -275,7 +280,9 @@ class AirsnifferController < ApplicationController
         req["X-ApiKey"]=dev.api_key
         res=Net::HTTP.start(url.host, url.port){|http|http.request req}
         j=JSON.parse res.body
-        
+
+        #ret+="Retrieve data end=#{endT.strftime '%FT%RZ'} #{j.inspect}\n"
+
         next unless j.has_key? 'datapoints'
         
         td=[]
@@ -298,10 +305,11 @@ class AirsnifferController < ApplicationController
       dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
       dev.save
       
-      render plain: "#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
+      ret+="#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
     rescue Exception=>e
-      render plain: "Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
+      ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
     end
+    render plain: ret
   end
   
   def data_retrieve
@@ -324,7 +332,10 @@ class AirsnifferController < ApplicationController
         dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
         dev.save
         
-        next unless j.has_key? 'datapoints'
+        unless j.has_key? 'datapoints'
+          ret+="0 data points retrieved for device_id: #{dev.dev_id}\n"
+          next
+        end
           
         j['datapoints'].each do |d|
           v=d['value']
