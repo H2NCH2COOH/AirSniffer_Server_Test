@@ -300,11 +300,12 @@ class AirsnifferController < ApplicationController
       
       render plain: "#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
     rescue Exception=>e
-        render plain: "Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
+      render plain: "Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
     end
   end
   
   def data_retrieve
+    ret=''
     PreRegDevice.find_each do |dev|
       begin
         data=[]
@@ -338,11 +339,12 @@ class AirsnifferController < ApplicationController
           end
         end
         
-        render plain: "#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
+        ret+="#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
       rescue Exception=>e
-        render plain: "Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
+        ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
       end
     end
+    render plain: ret
   end
   
   def graph
