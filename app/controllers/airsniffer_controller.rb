@@ -318,9 +318,9 @@ class AirsnifferController < ApplicationController
       begin
         data=[]
         if dev.last_retrieve_time.nil?
-          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=6hour}"
+          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour}"
         else
-          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{dev.last_retrieve_time}"
+          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour&start=#{dev.last_retrieve_time}"
         end
         url=URI.encode url
         url=URI.parse url
