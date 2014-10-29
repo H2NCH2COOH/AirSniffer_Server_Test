@@ -227,15 +227,14 @@ class AirsnifferController < ApplicationController
             i+=1
           else
             dummy=[]
-            j=i
-            ts=data[i][0]+300000
-            while data[j+1][0]-ts>400000
-              dummy<<ts
+            ts=data[i][0]
+            while data[i+1][0]-ts>=400000
               ts+=300000
-              j+=1
+              dummy<<ts
             end
             
-            if dummy.size<2
+            y=0
+            if dummy.size<3
               y=data[i][1]
             else
               y=0
