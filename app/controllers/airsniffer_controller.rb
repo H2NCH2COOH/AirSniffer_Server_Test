@@ -223,11 +223,28 @@ class AirsnifferController < ApplicationController
           data<<[data[i][0]+300000,0]
           i+=1
         else
-          if data[i+1][0]-data[i][0]<700000
+          if data[i+1][0]-data[i][0]<400000
             i+=1
           else
-            data.insert i+1,[data[i][0]+300000,0]
-            i+=1
+            dummy=[]
+            j=i
+            ts=data[i][0]+300000
+            while data[j+1][0]-ts>400000
+              dummy<<ts
+              ts+=300000
+              j+=1
+            end
+            
+            if dummy.size<2
+              y=data[i][1]
+            else
+              y=0
+            end
+            
+            dummy.each do |t|
+              data.insert i+1,[t,y]
+              i+=1
+            end
           end
         end
       end
