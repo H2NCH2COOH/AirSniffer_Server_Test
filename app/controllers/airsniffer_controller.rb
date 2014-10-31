@@ -333,7 +333,7 @@ class AirsnifferController < ApplicationController
   end
   
   def data_retrieve
-    ret=''
+    ret="[#{Time.now.to_s}]\n"
     PreRegDevice.find_each do |dev|
       begin
         data=[]
