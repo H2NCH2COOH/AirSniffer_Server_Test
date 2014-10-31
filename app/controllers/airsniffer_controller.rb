@@ -166,102 +166,106 @@ class AirsnifferController < ApplicationController
       redirect_to '/404'
       return
     end
-    
-    dev=Device.find_by dev_id: id, owner: uid
-    pdev=PreRegDevice.find_by dev_id: id
-    
-    if dev.nil?
-      redirect_to '/404'
-      return
-    end
-    
-    data=[]
-    c=''
-    if Rails.root.join('device_history', dev.dev_id).exist?
-      File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
-        c=f.read
+    begin
+      dev=Device.find_by dev_id: id, owner: uid
+      pdev=PreRegDevice.find_by dev_id: id
+      
+      if dev.nil?
+        redirect_to '/404'
+        return
       end
-    end
-    c.rstrip!
-    c.insert 0, '['
-    if c.end_with? ','
-      c[-1]=']'
-    else
-      c<<']'
-    end
-    
-    j=JSON.parse c
-    j.each do |d|
-      data<<[d[0],d[1]]
-    end
-    if pdev.last_retrieve_time.nil?
-      url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=6hour"
-    else
-      url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{pdev.last_retrieve_time}"
-    end
-    url=URI.encode url
-    url=URI.parse url
-    req=Net::HTTP::Get.new url.to_s
-    req["X-ApiKey"]=dev.api_key
-    res=Net::HTTP.start(url.host, url.port){|http|http.request req}
-    j=JSON.parse res.body
-    
-    if j.has_key? 'datapoints'
-      j['datapoints'].each do |d|
-        v=d['value']
-        t=d['at']
-        x=DateTime.strptime t, '%FT%T.%LZ'
-        data<<[x.to_time.to_i*1000, v.to_i]
+      
+      data=[]
+      c=''
+      if Rails.root.join('device_history', dev.dev_id).exist?
+        File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
+          c=f.read
+        end
       end
-    end
-    
-    if data.size>0
-      i=0
-      tEnd=Time.now.utc.to_i*1000-300000
-      while data[i][0]<tEnd
-        if data[i+1].nil?
-          data<<[data[i][0]+300000,0]
-          i+=1
-        else
-          if data[i+1][0]-data[i][0]<400000
+      c.rstrip!
+      c.insert 0, '['
+      if c.end_with? ','
+        c[-1]=']'
+      else
+        c<<']'
+      end
+      
+      j=JSON.parse c
+      j.each do |d|
+        data<<[d[0],d[1]]
+      end
+      if pdev.last_retrieve_time.nil?
+        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=6hour"
+      else
+        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{pdev.last_retrieve_time}"
+      end
+      url=URI.encode url
+      url=URI.parse url
+      req=Net::HTTP::Get.new url.to_s
+      req["X-ApiKey"]=dev.api_key
+      res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+      j=JSON.parse res.body
+      
+      if j.has_key? 'datapoints'
+        j['datapoints'].each do |d|
+          v=d['value']
+          t=d['at']
+          x=DateTime.strptime t, '%FT%T.%LZ'
+          data<<[x.to_time.to_i*1000, v.to_i]
+        end
+      end
+      
+      if data.size>0
+        i=0
+        tEnd=Time.now.utc.to_i*1000-300000
+        while data[i][0]<tEnd
+          if data[i+1].nil?
+            data<<[data[i][0]+300000,0]
             i+=1
           else
-            dummy=[]
-            ts=data[i][0]
-            while data[i+1][0]-ts>=400000
-              ts+=300000
-              dummy<<ts
-            end
-            
-            y=0
-            if dummy.size<3
-              y=data[i][1]
-            else
-              y=0
-            end
-            
-            dummy.each do |t|
-              data.insert i+1,[t,y]
+            if data[i+1][0]-data[i][0]<400000
               i+=1
+            else
+              dummy=[]
+              ts=data[i][0]
+              while data[i+1][0]-ts>=400000
+                ts+=300000
+                dummy<<ts
+              end
+              
+              y=0
+              if dummy.size<3
+                y=data[i][1]
+              else
+                y=0
+              end
+              
+              dummy.each do |t|
+                data.insert i+1,[t,y]
+                i+=1
+              end
             end
           end
         end
       end
-    end
-      
-    @dataCount=data.size
-    @chart=LazyHighCharts::HighChart.new('graph') do |f|
-      f.title text: dev.name
-      f.yAxis min: 0
-      f.rangeSelector(
-        buttons: [
-          {type: 'day', count: 1, text: '1天'},
-          {type: 'week', count: 1, text: '1周'},
-          {type: 'month', count: 1, text: '1月'}
-        ],
-        selected: 0
-      )
-      f.series name: "PM2.5", data: data
+        
+      @dataCount=data.size
+      @chart=LazyHighCharts::HighChart.new('graph') do |f|
+        f.title text: dev.name
+        f.yAxis min: 0
+        f.rangeSelector(
+          buttons: [
+            {type: 'day', count: 1, text: '1天'},
+            {type: 'week', count: 1, text: '1周'},
+            {type: 'month', count: 1, text: '1月'}
+          ],
+          selected: 0
+        )
+        f.series name: "PM2.5", data: data
+      end
+    rescue Exception=>e
+      logger.error '[Exception] '+e.to_s
+      render plain: '出错，请稍后重试'
     end
   end
   
