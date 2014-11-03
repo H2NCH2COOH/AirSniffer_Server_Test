@@ -1,12 +1,13 @@
 Rails.application.routes.draw do
   get 'airsniffer/wxhandler'=>'airsniffer#wxhandler_get'
-  post 'airsniffer/wxhandler'
+  post 'airsniffer/wxhandler'=>'airsniffer#wxhandler'
   
   get 'airsniffer/graph/:uid/:id'=>'airsniffer#graph'
   get 'airsniffer/chart/:uid/:id'=>'airsniffer#chart'
   
   get 'airsniffer/force_retrieve'=>'airsniffer#force_retrieve'
   get 'airsniffer/data_retrieve'=>'airsniffer#data_retrieve'
+  get 'airsniffer/retrieve_at/:id'=>'airsniffer#retrieve_at'
   
   get 'airsniffer/pre_register'
   

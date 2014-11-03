@@ -322,12 +322,14 @@ class AirsnifferController < ApplicationController
         end
       end
       
-      dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
-      dev.save
-      
       ret+="#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
     rescue Exception=>e
       ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
+    ensure
+      if dev
+        dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
+        dev.save
+      end
     end
     render plain: ret
   end
@@ -348,9 +350,6 @@ class AirsnifferController < ApplicationController
         req["X-ApiKey"]=dev.api_key
         res=Net::HTTP.start(url.host, url.port){|http|http.request req}
         j=JSON.parse res.body
-        
-        dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
-        dev.save
         
         unless j.has_key? 'datapoints'
           ret+="0 data points retrieved for device_id: #{dev.dev_id}\n"
@@ -374,7 +373,86 @@ class AirsnifferController < ApplicationController
       rescue Exception=>e
         logger.error '[Exception] '+e.to_s
         ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
+      ensure
+        if dev
+          dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
+          dev.save
+        end
       end
+    end
+    render plain: ret
+  end
+  
+  def retrieve_at
+    id=params[:id]
+    start=params[:start]
+    duration=params[:duration]
+    key=params[:key]
+    
+    if (id.nil? or start.nil? or duration.nil? or key.nil?) and not key.eql? KEY
+      render plain: 'ARG ERROR!'
+      return
+    end
+    
+    ret=''
+    begin
+      dev=PreRegDevice.find_by dev_id: id
+      if dev.nil?
+        render plain: "Device not found!"
+        return
+      end
+      
+      url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=#{duration}&start=#{start}"
+      url=URI.encode url
+      url=URI.parse url
+      req=Net::HTTP::Get.new url.to_s
+      req["X-ApiKey"]=dev.api_key
+      res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+      j=JSON.parse res.body
+     
+      data=[]
+      if j.has_key? 'datapoints'
+        j['datapoints'].each do |d|
+          v=d['value']
+          t=d['at']
+          x=DateTime.strptime t, '%FT%T.%LZ'
+          data<<[x.to_time.to_i*1000, v.to_i]
+        end
+        
+        s=data[0][0]
+        File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
+            c=f.read
+        end
+        c.rstrip!
+        c.insert 0, '['
+        if c.end_with? ','
+          c[-1]=']'
+        else
+          c<<']'
+        end
+        
+        j=JSON.parse c
+        for i in 0...j.size
+          break if j[i][0]>s
+        end
+        
+        if i==j.size-1 and j[i][0]<s
+          i+=1
+        end
+        
+        data.each do |p|
+          j.insert i, p
+          i+=1
+        end
+        
+        File.open(Rails.root.join('device_history', dev.dev_id), 'w') do |f|
+          j.each do |p|
+            f.write "[#{p[0]},#{p[1]}],"
+          end
+        end
+      end
+    rescue Exception=>e
+      ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
     end
     render plain: ret
   end
