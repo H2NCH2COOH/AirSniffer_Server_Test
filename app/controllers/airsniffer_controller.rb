@@ -14,6 +14,7 @@ end
 class AirsnifferController < ApplicationController
   TOKEN='AirSniffer'
   KEY='7328956043759284757545839'
+  XIVELY_PRODUCT_ID='ioV3xb4qcXATBqOZXccU'
   XIVELY_PRODUCT_SECRET='c71390d4339d6b2f4dc0c700e961f3da1e90c145'
   
   def pre_registered_dev
@@ -44,6 +45,24 @@ class AirsnifferController < ApplicationController
     end
     
     begin
+      dev=PreRegDevice.find_by dev_id: id
+      if dev
+        render plain: "Device: #{id} already exist"
+        return
+      end
+      
+      url="http://api.xively.com/v2/products/#{XIVELY_PRODUCT_ID}/devices"
+      url=URI.encode url
+      url=URI.parse url
+      req=Net::HTTP::Post.new url.to_s
+      req.body="{\"devices\":[{\"serial\":\"#{id}\"}]}"
+      res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+      
+      unless res.kind_of? Net::HTTPCreated
+        render plain: "Creating new device on xively failed with #{res.code}\n#{res.body}"
+        return
+      end
+      
       digest=OpenSSL::Digest::Digest.new 'sha1'
       activation_code=OpenSSL::HMAC.hexdigest digest, [XIVELY_PRODUCT_SECRET].pack("H*"), id
       
@@ -54,7 +73,6 @@ class AirsnifferController < ApplicationController
       res=Net::HTTP.start(url.host, url.port){|http|http.request req}
       j=JSON.parse res.body
       
-      PreRegDevice.where(dev_id: id).each{|p|p.destroy}
       PreRegDevice.create dev_id: id, feed_id: j['feed_id'], api_key: j['apikey'], last_retrieve_time: nil
       
       render plain: JSON.dump(dev_id: id, feed_id: j['feed_id'], api_key: j['apikey'])
