@@ -10,7 +10,7 @@ Rails.application.routes.draw do
   get 'airsniffer/retrieve_at/:id'=>'airsniffer#retrieve_at'
   
   get 'airsniffer/pre_register'
-  
+  get 'airsniffer/delete_device' 
   get 'airsniffer/pre_registered_dev'
   
   get '*path' => redirect('/404')

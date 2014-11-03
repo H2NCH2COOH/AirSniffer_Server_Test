@@ -16,12 +16,13 @@ class AirsnifferController < ApplicationController
   KEY='7328956043759284757545839'
   XIVELY_PRODUCT_ID='ioV3xb4qcXATBqOZXccU'
   XIVELY_PRODUCT_SECRET='c71390d4339d6b2f4dc0c700e961f3da1e90c145'
+  XIVELY_MASTER_KEY='4tE9zx1Hezmm2rUhrkBsncOGfGmssYTn5VBli3yc9qifzjKB'
   
   def pre_registered_dev
     id=params[:id]
     key=params[:key]
     
-    if (id.nil? or key.nil?) and not key.eql? KEY
+    if id.nil? or key.nil? or key!=KEY
       render plain: 'args error!'
       return
     end
@@ -36,10 +37,24 @@ class AirsnifferController < ApplicationController
     render plain: ret
   end
   
+  def delete_device
+    id=params[:id]
+    key=params[:key]
+
+    if id.nil? or key.nil? or key!=KEY
+      render plain: 'ARG ERROR!'
+      return
+    end
+
+    PreRegDevice.where(dev_id: id).each{|d|d.destroy}
+    render plain: "Device: #{id} deleted"
+  end
+
   def pre_register
     id=params[:id]
-    
-    if id.nil?
+    key=params[:key]
+       
+    if id.nil? or key.nil? or key!=KEY
       render plain: 'ARG ERROR!'
       return
     end
@@ -55,6 +70,7 @@ class AirsnifferController < ApplicationController
       url=URI.encode url
       url=URI.parse url
       req=Net::HTTP::Post.new url.to_s
+      req['X-ApiKey']=XIVELY_MASTER_KEY
       req.body="{\"devices\":[{\"serial\":\"#{id}\"}]}"
       res=Net::HTTP.start(url.host, url.port){|http|http.request req}
       
