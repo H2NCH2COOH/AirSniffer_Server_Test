@@ -215,7 +215,7 @@ class AirsnifferController < ApplicationController
         end
       end
       
-      if data.size>0
+      if data.size>0 and false
         i=0
         tEnd=Time.now.utc.to_i*1000-300000
         while data[i][0]<tEnd
@@ -252,7 +252,8 @@ class AirsnifferController < ApplicationController
       @dataCount=data.size
       @chart=LazyHighCharts::HighChart.new('graph') do |f|
         f.title text: dev.name
-        f.yAxis min: 0
+        f.xAxis ordinal:false
+        f.yAxis min: 0 
         f.rangeSelector(
           buttons: [
             {type: 'day', count: 1, text: '1天'},
