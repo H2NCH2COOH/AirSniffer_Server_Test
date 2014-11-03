@@ -411,6 +411,7 @@ class AirsnifferController < ApplicationController
       j=JSON.parse res.body
      
       data=[]
+      siz=0
       if j.has_key? 'datapoints'
         j['datapoints'].each do |d|
           v=d['value']
@@ -418,8 +419,9 @@ class AirsnifferController < ApplicationController
           x=DateTime.strptime t, '%FT%T.%LZ'
           data<<[x.to_time.to_i*1000, v.to_i]
         end
-        
+        siz=data.size
         s=data[0][0]
+        c=''
         File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
             c=f.read
         end
@@ -451,6 +453,7 @@ class AirsnifferController < ApplicationController
           end
         end
       end
+      ret+="#{siz} data points retrieved for device_id: #{dev.dev_id}"
     rescue Exception=>e
       ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
     end
