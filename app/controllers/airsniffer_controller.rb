@@ -489,6 +489,14 @@ class AirsnifferController < ApplicationController
         
         j=JSON.parse c
         for i in 0...j.size
+          if j[i][0]==s
+            data.delete_at 0
+            if data.size==0
+              render plain: 'All data points duplicated'
+              return
+            end
+            s=data[0][0]
+          end
           break if j[i][0]>s
         end
         
