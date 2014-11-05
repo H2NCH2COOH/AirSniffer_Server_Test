@@ -193,26 +193,42 @@ class AirsnifferController < ApplicationController
   end
   
   def chart
-    id=params.delete :id
-    uid=params.delete :uid
+    id=params[:id]
+    uid=params[:uid]
     
     if id.nil? or uid.nil?
       redirect_to '/404'
       return
     end
+    
     begin
-      dev=Device.find_by dev_id: id, owner: uid
       pdev=PreRegDevice.find_by dev_id: id
-      
-      if dev.nil?
-        redirect_to '/404'
+      if pdev.nil?
+        render plain: 'Device not found'
         return
       end
-      
+
+      name=''
+      if uid=='admin'
+        key=params[:key]
+        if key.nil? or key!=KEY
+          render plain: 'ARG ERROR!'
+          return
+        end
+        name="Device: #{pdev.dev_id}"
+      else
+        dev=Device.find_by dev_id: id, owner: uid
+        if dev.nil?
+          render plain: 'Device not found'
+          return
+        end
+        name=dev.name
+      end
+
       data=[]
       c=''
-      if Rails.root.join('device_history', dev.dev_id).exist?
-        File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
+      if Rails.root.join('device_history', pdev.dev_id).exist?
+        File.open(Rails.root.join('device_history', pdev.dev_id), 'r') do |f|
           c=f.read
         end
       end
@@ -229,14 +245,14 @@ class AirsnifferController < ApplicationController
         data<<[d[0],d[1]]
       end
       if pdev.last_retrieve_time.nil?
-        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=6hour"
+        url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&duration=6hour"
       else
-        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&start=#{pdev.last_retrieve_time}"
+        url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&start=#{pdev.last_retrieve_time}"
       end
       url=URI.encode url
       url=URI.parse url
       req=Net::HTTP::Get.new url.to_s
-      req["X-ApiKey"]=dev.api_key
+      req["X-ApiKey"]=pdev.api_key
       res=Net::HTTP.start(url.host, url.port){|http|http.request req}
       j=JSON.parse res.body
       
@@ -285,7 +301,7 @@ class AirsnifferController < ApplicationController
         
       @dataCount=data.size
       @chart=LazyHighCharts::HighChart.new('graph') do |f|
-        f.title text: dev.name
+        f.title text: name
         f.xAxis ordinal:false
         f.yAxis min: 0 
         f.rangeSelector(
@@ -372,47 +388,50 @@ class AirsnifferController < ApplicationController
   def data_retrieve
     ret="[#{Time.now.to_s}]\n"
     PreRegDevice.find_each do |dev|
-      begin
-        data=[]
-        if dev.last_retrieve_time.nil?
-          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour}"
-        else
-          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour&start=#{dev.last_retrieve_time}"
-        end
-        url=URI.encode url
-        url=URI.parse url
-        req=Net::HTTP::Get.new url.to_s
-        req["X-ApiKey"]=dev.api_key
-        res=Net::HTTP.start(url.host, url.port){|http|http.request req}
-        j=JSON.parse res.body
-        
-        unless j.has_key? 'datapoints'
-          ret+="0 data points retrieved for device_id: #{dev.dev_id}\n"
-          next
-        end
-          
-        j['datapoints'].each do |d|
-          v=d['value']
-          t=d['at']
-          x=DateTime.strptime t, '%FT%T.%LZ'
-          data<<[x.to_time.to_i*1000, v.to_i]
-        end
-        
-        File.open(Rails.root.join('device_history', dev.dev_id), 'a') do |f|
-          data.each do |p|
-            f.write "[#{p[0]},#{p[1]}],"
+      3.times do
+        begin
+          data=[]
+          if dev.last_retrieve_time.nil?
+            url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour}"
+          else
+            url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour&start=#{dev.last_retrieve_time}"
           end
-        end
+          url=URI.encode url
+          url=URI.parse url
+          req=Net::HTTP::Get.new url.to_s
+          req["X-ApiKey"]=dev.api_key
+          res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+          j=JSON.parse res.body
         
-        ret+="#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
-      rescue Exception=>e
-        logger.error '[Exception] '+e.to_s
-        ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
-      ensure
-        if dev
-          dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
-          dev.save
+          unless j.has_key? 'datapoints'
+            ret+="0 data points retrieved for device_id: #{dev.dev_id}\n"
+            break
+          end
+            
+          j['datapoints'].each do |d|
+            v=d['value']
+            t=d['at']
+            x=DateTime.strptime t, '%FT%T.%LZ'
+            data<<[x.to_time.to_i*1000, v.to_i]
+          end
+          
+          File.open(Rails.root.join('device_history', dev.dev_id), 'a') do |f|
+            data.each do |p|
+              f.write "[#{p[0]},#{p[1]}],"
+            end
+          end
+          
+          ret+="#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
+          break
+        rescue Exception=>e
+          logger.error '[Exception] '+e.to_s
+          ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
         end
+      end
+      
+      if dev
+        dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
+        dev.save
       end
     end
     render plain: ret
