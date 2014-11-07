@@ -265,19 +265,21 @@ class AirsnifferController < ApplicationController
         end
       end
       
+      data_interval=5*60*1000
+      gap_limit=1000*1000
       if data.size>0
         i=0
-        tEnd=Time.now.utc.to_i*1000-300000
-        while data[i][0]<tEnd
+        tEnd=Time.now.utc.to_i*1000
+        while data[i][0]<tEnd-gap_limit
           if data[i+1].nil?
-            data<<[data[i][0]+300000, 0]
-            data<<[tEnd+300000, 0]
+            data<<[data[i][0]+data_interval, 0]
+            data<<[tEnd, 0]
             break
           else
-            if data[i+1][0]-data[i][0]>700000
-              data.insert i+1, [data[i][0]+300000, 0]
+            if data[i+1][0]-data[i][0]>gap_limit
+              data.insert i+1, [data[i][0]+data_interval, 0]
               i+=1
-              data.insert i+1, [data[i+1][0]-300000, 0]
+              data.insert i+1, [data[i+1][0]-data_interval, 0]
               i+=2
             else
               i+=1
