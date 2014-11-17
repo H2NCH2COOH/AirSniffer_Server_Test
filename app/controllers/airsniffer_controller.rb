@@ -292,19 +292,27 @@ class AirsnifferController < ApplicationController
       @chart=LazyHighCharts::HighChart.new('graph') do |f|
         f.title({
           text: name,
+          floating: true,
           style: {
             fontSize: '200%'
           }
         })
         f.xAxis({
           ordinal: false,
+          dateTimeLabelFormats: {
+            minute: '%H:%M',
+            hour: '%H:%M',
+            day: '%b %e',
+            week: '%b %e',
+            month: '%Y %b',
+            year: '%Y'
+          },
           labels: {
             style: {
               fontSize: '150%'
             },
-            #format: '{value:%Y-%m-%d}',
             step: 2,
-            rotation: 45
+            rotation: 0
           }
         })
         f.yAxis min: 0 
@@ -316,6 +324,9 @@ class AirsnifferController < ApplicationController
           ],
           selected: 0
         )
+        f.tooltip({
+          valueDecimals: 0
+        })
         f.series name: "PM2.5", data: data
       end
     rescue Exception=>e
