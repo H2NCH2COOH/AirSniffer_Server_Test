@@ -290,8 +290,23 @@ class AirsnifferController < ApplicationController
         
       @dataCount=data.size
       @chart=LazyHighCharts::HighChart.new('graph') do |f|
-        f.title text: name
-        f.xAxis ordinal:false
+        f.title({
+          text: name,
+          style: {
+            fontSize: '200%'
+          }
+        })
+        f.xAxis({
+          ordinal: false,
+          labels: {
+            style: {
+              fontSize: '150%'
+            },
+            #format: '{value:%Y-%m-%d}',
+            step: 2,
+            rotation: 45
+          }
+        })
         f.yAxis min: 0 
         f.rangeSelector(
           buttons: [
