@@ -311,8 +311,8 @@ class AirsnifferController < ApplicationController
             style: {
               fontSize: '150%'
             },
-            step: 2,
-            rotation: 0
+            step: 3,
+            rotation: 45
           }
         })
         f.yAxis min: 0 
@@ -464,75 +464,85 @@ class AirsnifferController < ApplicationController
     end
     
     ret=''
-    begin
-      dev=PreRegDevice.find_by dev_id: id
-      if dev.nil?
+    devs=[]
+    if id=='all'
+      devs=PreRegDevice.all
+    else
+      d=PreRegDevice.find_by dev_id: id
+      if d.nil?
         render plain: "Device not found!"
         return
       end
+      devs<<d
+    end
       
-      url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=#{duration}&start=#{start}"
-      url=URI.encode url
-      url=URI.parse url
-      req=Net::HTTP::Get.new url.to_s
-      req["X-ApiKey"]=dev.api_key
-      res=Net::HTTP.start(url.host, url.port){|http|http.request req}
-      j=JSON.parse res.body
-     
-      data=[]
-      siz=0
-      if j.has_key? 'datapoints'
-        j['datapoints'].each do |d|
-          v=d['value']
-          t=d['at']
-          x=DateTime.strptime t, '%FT%T.%LZ'
-          data<<[x.to_time.to_i*1000, v.to_i]
-        end
-        siz=data.size
-        s=data[0][0]
-        c=''
-        File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
+    devs.each do |dev|
+      begin
+        url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=#{duration}&start=#{start}"
+        url=URI.encode url
+        url=URI.parse url
+        req=Net::HTTP::Get.new url.to_s
+        req["X-ApiKey"]=dev.api_key
+        res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+        j=JSON.parse res.body
+       
+        data=[]
+        siz=0
+        if j.has_key? 'datapoints'
+          j['datapoints'].each do |d|
+            v=d['value']
+            t=d['at']
+            x=DateTime.strptime t, '%FT%T.%LZ'
+            data<<[x.to_time.to_i*1000, v.to_i]
+          end
+          siz=data.size
+          s=data[0][0]
+          c=''
+          File.open(Rails.root.join('device_history', dev.dev_id), 'r') do |f|
             c=f.read
-        end
-        c.rstrip!
-        c.insert 0, '['
-        if c.end_with? ','
-          c[-1]=']'
-        else
-          c<<']'
-        end
-        
-        j=JSON.parse c
-        for i in 0...j.size
-          if j[i][0]==s
-            data.delete_at 0
-            if data.size==0
-              render plain: 'All data points duplicated'
-              return
+          end
+          c.rstrip!
+          c.insert 0, '['
+          if c.end_with? ','
+            c[-1]=']'
+          else
+            c<<']'
+          end
+          dupFlag=false
+          j=JSON.parse c
+          for i in 0...j.size
+            if j[i][0]==s
+              data.delete_at 0
+              if data.size==0
+                ret+="All data points duplicated for device_id: #{dev.dev_id}\n"
+                dupFlag=true
+                break
+              end
+              s=data[0][0]
             end
-            s=data[0][0]
+            break if j[i][0]>s
           end
-          break if j[i][0]>s
-        end
-        
-        if i==j.size-1 and j[i][0]<s
-          i+=1
-        end
-        
-        data.each do |p|
-          j.insert i, p
-          i+=1
-        end
-        
-        File.open(Rails.root.join('device_history', dev.dev_id), 'w') do |f|
-          j.each do |p|
-            f.write "[#{p[0]},#{p[1]}],"
+          next if dupFlag
+          
+          if i==j.size-1 and j[i][0]<s
+            i+=1
+          end
+          
+          data.each do |p|
+            j.insert i, p
+            i+=1
+          end
+          
+          File.open(Rails.root.join('device_history', dev.dev_id), 'w') do |f|
+            j.each do |p|
+              f.write "[#{p[0]},#{p[1]}],"
+            end
           end
         end
+        ret+="#{siz} data points retrieved for device_id: #{dev.dev_id}\n"
+      rescue Exception=>e
+        ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
       end
-      ret+="#{siz} data points retrieved for device_id: #{dev.dev_id}"
-    rescue Exception=>e
-      ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
     end
     render plain: ret
   end
