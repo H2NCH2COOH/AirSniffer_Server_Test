@@ -13,6 +13,8 @@ Rails.application.routes.draw do
   get 'airsniffer/delete_device' 
   get 'airsniffer/pre_registered_dev'
   
+  get 'airsniffer/test_req'
+  
   get '*path' => redirect('/404')
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".

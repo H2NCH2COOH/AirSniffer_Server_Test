@@ -18,6 +18,22 @@ class AirsnifferController < ApplicationController
   XIVELY_PRODUCT_SECRET='c71390d4339d6b2f4dc0c700e961f3da1e90c145'
   XIVELY_MASTER_KEY='4tE9zx1Hezmm2rUhrkBsncOGfGmssYTn5VBli3yc9qifzjKB'
   
+  def send_admin_email(content)
+    tag="Air Sniffer Server Report\n"
+    content=tag+content+"\n"
+    url="http://wzyemailservice.appsp0t.com"
+    url=URI.encode url
+    url=URI.parse url
+    req=Net::HTTP::Post.new url.to_s
+    req.body="body=#{content}"
+    res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+  end
+  
+  def test_req
+    send_admin_email "Test"
+    render plain: params.inspect
+  end
+  
   def pre_registered_dev
     id=params[:id]
     key=params[:key]
