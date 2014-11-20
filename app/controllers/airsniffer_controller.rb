@@ -297,7 +297,8 @@ class AirsnifferController < ApplicationController
     ids=[]
     for i in 1..10
       if params.has_key? i.to_s
-        ids<<params[i.to_s]
+        did=params[i.to_s]
+        ids<<did if did.size>0
       else
         break
       end
@@ -327,7 +328,7 @@ class AirsnifferController < ApplicationController
     devs=[]
     ids.each do |id|
       pdev=PreRegDevice.find_by dev_id: id
-      break if pdev.nil?
+      next if pdev.nil?
       
       name=''
       if use_admin
@@ -335,7 +336,7 @@ class AirsnifferController < ApplicationController
       else
         dev=Device.find_by dev_id: id, owner: uid
         if dev.nil?
-          break
+          next
         end
         name=dev.name
       end
@@ -385,7 +386,10 @@ class AirsnifferController < ApplicationController
         f.series name: p[0], data: p[1]
       end
       
-      f.legend enabled: true
+      f.legend({
+        enabled: true,
+        itemStyle: {fontSize: '200%'},
+      })
     end
     
     render 'chart'
