@@ -113,51 +113,56 @@ class AirsnifferController < ApplicationController
           end
         end
         
-        devs<<[id,data]
+        devs<<[id, data]
+      rescue Exception=>e
+        #NOP
       end
-        
-      @dataCount=0
-      @chart=LazyHighCharts::HighChart.new('graph') do |f|
-        f.xAxis({
-          ordinal: false,
-          dateTimeLabelFormats: {
-            minute: '%H:%M',
-            hour: '%H:%M',
-            day: '%b %e',
-            week: '%b %e',
-            month: '%Y %b',
-            year: '%Y'
+    end
+       
+    @dataCount=0
+    @chart=LazyHighCharts::HighChart.new('graph') do |f|
+      f.xAxis({
+        ordinal: false,
+        dateTimeLabelFormats: {
+          minute: '%H:%M',
+          hour: '%H:%M',
+          day: '%b %e',
+          week: '%b %e',
+          month: '%Y %b',
+          year: '%Y'
+        },
+        labels: {
+          style: {
+            fontSize: '150%'
           },
-          labels: {
-            style: {
-              fontSize: '150%'
-            },
-            step: 3,
-            rotation: 45
-          }
-        })
-        f.yAxis min: 0 
-        f.rangeSelector(
-          buttons: [
-            {type: 'day', count: 1, text: '1天'},
-            {type: 'week', count: 1, text: '1周'},
-            {type: 'month', count: 1, text: '1月'}
-          ],
-          selected: 0
-        )
-        f.tooltip({
-          valueDecimals: 0
-        })
-        
-        f.series devs.map{|p|{name: p[0], data: p[1]}}
-        
-        f.legend enabled: true, align: 'right'
+          step: 3,
+          rotation: 45
+        }
+      })
+      
+      f.yAxis min: 0 
+      
+      f.rangeSelector(
+        buttons: [
+          {type: 'day', count: 1, text: '1天'},
+          {type: 'week', count: 1, text: '1周'},
+          {type: 'month', count: 1, text: '1月'}
+        ],
+        selected: 0
+      )
+      
+      f.tooltip({
+        valueDecimals: 0
+      })
+      
+      devs.each do |p|
+        f.series name: p[0], data: p[1]
       end
-    rescue Exception=>e
-      logger.error '[Exception] '+e.to_s
-      render plain: '出错，请稍后重试'
+      
+      f.legend enabled: true
     end
     
+    render 'chart'
   end
   
   def pre_registered_dev
