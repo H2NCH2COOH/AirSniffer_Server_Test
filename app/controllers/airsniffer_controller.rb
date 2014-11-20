@@ -326,27 +326,23 @@ class AirsnifferController < ApplicationController
     
     devs=[]
     ids.each do |id|
-      begin
-        pdev=PreRegDevice.find_by dev_id: id
-        break if pdev.nil?
-        
-        name=''
-        if use_admin
-          name="#{pdev.dev_id}"
-        else
-          dev=Device.find_by dev_id: id, owner: uid
-          if dev.nil?
-            break
-          end
-          name=dev.name
+      pdev=PreRegDevice.find_by dev_id: id
+      break if pdev.nil?
+      
+      name=''
+      if use_admin
+        name="#{pdev.dev_id}"
+      else
+        dev=Device.find_by dev_id: id, owner: uid
+        if dev.nil?
+          break
         end
-
-        data=get_all_datapoints pdev
-        
-        devs<<[name, data]
-      rescue Exception=>e
-        #NOP
+        name=dev.name
       end
+
+      data=get_all_datapoints pdev
+      
+      devs<<[name, data] if data.size>0
     end
        
     @dataCount=0
