@@ -45,7 +45,7 @@ class AirsnifferController < ApplicationController
   end
   
   def test_req
-    send_admin_email "Test Mail"
+    render plain: "Test"
   end
   
   def pre_registered_dev
@@ -820,11 +820,15 @@ class AirsnifferController < ApplicationController
             return wx_text_responce_builder '没有注册设备'
           end
           
+          url="http://115.29.178.169/airsniffer/multichart/#{@uId}?"
+          i=1
           @devs.first(10).each do |dev|
-            url=URI.encode "http://115.29.178.169/airsniffer/multichart/#{@uId}/#{dev.dev_id}"
-            num+=1
-            arts<<{text: dev.name, url: url}
+            url+="#{i}=#{dev.dev_id}&"
+            i+=1
           end
+          url=URI.encode url[0..-2]
+          
+          return wx_article_responce_builder [{text: '比较', url: url}]
         else
           return wx_text_responce_builder '？'
       end
