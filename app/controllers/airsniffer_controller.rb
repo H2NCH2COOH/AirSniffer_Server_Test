@@ -38,7 +38,126 @@ class AirsnifferController < ApplicationController
         break
       end
     end
-    render plain: ids.inspect
+    
+    if ids.size==0
+      render plain: 'Need at least 1 dev_id'
+      return
+    end
+    
+    devs=[]
+    ids.each do |id|
+      begin
+        pdev=PreRegDevice.find_by dev_id: id
+        break if pdev.nil?
+
+        data=[]
+        c=''
+        if Rails.root.join('device_history', pdev.dev_id).exist?
+          File.open(Rails.root.join('device_history', pdev.dev_id), 'r') do |f|
+            c=f.read
+          end
+        end
+        c.rstrip!
+        c.insert 0, '['
+        if c.end_with? ','
+          c[-1]=']'
+        else
+          c<<']'
+        end
+        
+        j=JSON.parse c
+        j.each do |d|
+          data<<[d[0],d[1]]
+        end
+        if pdev.last_retrieve_time.nil?
+          url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&duration=6hour"
+        else
+          url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&start=#{pdev.last_retrieve_time}"
+        end
+        url=URI.encode url
+        url=URI.parse url
+        req=Net::HTTP::Get.new url.to_s
+        req["X-ApiKey"]=pdev.api_key
+        res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+        j=JSON.parse res.body
+        
+        if j.has_key? 'datapoints'
+          j['datapoints'].each do |d|
+            v=d['value']
+            t=d['at']
+            x=DateTime.strptime t, '%FT%T.%LZ'
+            data<<[x.to_time.to_i*1000, v.to_i]
+          end
+        end
+        
+        data_interval=5*60*1000
+        gap_limit=1000*1000
+        if data.size>0
+          i=0
+          tEnd=Time.now.utc.to_i*1000
+          while data[i][0]<tEnd-gap_limit
+            if data[i+1].nil?
+              data<<[data[i][0]+data_interval, 0]
+              data<<[tEnd, 0]
+              break
+            else
+              if data[i+1][0]-data[i][0]>gap_limit
+                data.insert i+1, [data[i][0]+data_interval, 0]
+                i+=1
+                data.insert i+1, [data[i+1][0]-data_interval, 0]
+                i+=2
+              else
+                i+=1
+              end
+            end
+          end
+        end
+        
+        devs<<[id,data]
+      end
+        
+      @dataCount=0
+      @chart=LazyHighCharts::HighChart.new('graph') do |f|
+        f.xAxis({
+          ordinal: false,
+          dateTimeLabelFormats: {
+            minute: '%H:%M',
+            hour: '%H:%M',
+            day: '%b %e',
+            week: '%b %e',
+            month: '%Y %b',
+            year: '%Y'
+          },
+          labels: {
+            style: {
+              fontSize: '150%'
+            },
+            step: 3,
+            rotation: 45
+          }
+        })
+        f.yAxis min: 0 
+        f.rangeSelector(
+          buttons: [
+            {type: 'day', count: 1, text: '1天'},
+            {type: 'week', count: 1, text: '1周'},
+            {type: 'month', count: 1, text: '1月'}
+          ],
+          selected: 0
+        )
+        f.tooltip({
+          valueDecimals: 0
+        })
+        
+        f.series devs.map{|p|{name: p[0], data: p[1]}}
+        
+        f.legend enabled: true, align: 'right'
+      end
+    rescue Exception=>e
+      logger.error '[Exception] '+e.to_s
+      render plain: '出错，请稍后重试'
+    end
+    
   end
   
   def pre_registered_dev
