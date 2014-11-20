@@ -4,7 +4,22 @@ require 'net/http'
 require 'json'
 require 'lazy_high_charts'
 require 'openssl'
+require 'mail'
+#=============================================================================#
+#Mail setup
+options = { :address              => "smtp.gmail.com",
+            :port                 => 587,
+            #:domain               => 'your.host.name',
+            :user_name            => 'wzypublic@gmail.com',
+            :password             => 'zhiyuanwd',
+            :authentication       => 'plain',
+            :enable_starttls_auto => true
+}
 
+Mail.defaults do
+  delivery_method :smtp, options
+end
+#=============================================================================#
 class Device < ActiveRecord::Base
 end
 
@@ -18,151 +33,19 @@ class AirsnifferController < ApplicationController
   XIVELY_PRODUCT_SECRET='c71390d4339d6b2f4dc0c700e961f3da1e90c145'
   XIVELY_MASTER_KEY='4tE9zx1Hezmm2rUhrkBsncOGfGmssYTn5VBli3yc9qifzjKB'
   
-  def send_admin_email(content)
-    tag="Air Sniffer Server Report\n"
-    content=tag+content+"\n"
+  def send_admin_email(content, to=nil)
+    to='wzypublic@gmail.com' if to.nil?
     
-    url="http://wzyemailservice.appsp0t.com?body=#{content}"
-    url=URI.encode url
-    url=URI.parse url
-    req=Net::HTTP::Post.new url.to_s
-    res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+    Mail.deliver do
+      to to
+      from 'Air Sniffer Server Report <wzypublic@gmail.com>'
+      subject 'Air Sniffer Server Report'
+      body content
+    end
   end
   
   def test_req
-    ids=[]
-    for i in 1..10
-      if params.has_key? i.to_s
-        ids<<params[i.to_s]
-      else
-        break
-      end
-    end
-    
-    if ids.size==0
-      render plain: 'Need at least 1 dev_id'
-      return
-    end
-    
-    devs=[]
-    ids.each do |id|
-      begin
-        pdev=PreRegDevice.find_by dev_id: id
-        break if pdev.nil?
-
-        data=[]
-        c=''
-        if Rails.root.join('device_history', pdev.dev_id).exist?
-          File.open(Rails.root.join('device_history', pdev.dev_id), 'r') do |f|
-            c=f.read
-          end
-        end
-        c.rstrip!
-        c.insert 0, '['
-        if c.end_with? ','
-          c[-1]=']'
-        else
-          c<<']'
-        end
-        
-        j=JSON.parse c
-        j.each do |d|
-          data<<[d[0],d[1]]
-        end
-        if pdev.last_retrieve_time.nil?
-          url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&duration=6hour"
-        else
-          url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&start=#{pdev.last_retrieve_time}"
-        end
-        url=URI.encode url
-        url=URI.parse url
-        req=Net::HTTP::Get.new url.to_s
-        req["X-ApiKey"]=pdev.api_key
-        res=Net::HTTP.start(url.host, url.port){|http|http.request req}
-        j=JSON.parse res.body
-        
-        if j.has_key? 'datapoints'
-          j['datapoints'].each do |d|
-            v=d['value']
-            t=d['at']
-            x=DateTime.strptime t, '%FT%T.%LZ'
-            data<<[x.to_time.to_i*1000, v.to_i]
-          end
-        end
-        
-        data_interval=5*60*1000
-        gap_limit=1000*1000
-        if data.size>0
-          i=0
-          tEnd=Time.now.utc.to_i*1000
-          while data[i][0]<tEnd-gap_limit
-            if data[i+1].nil?
-              data<<[data[i][0]+data_interval, 0]
-              data<<[tEnd, 0]
-              break
-            else
-              if data[i+1][0]-data[i][0]>gap_limit
-                data.insert i+1, [data[i][0]+data_interval, 0]
-                i+=1
-                data.insert i+1, [data[i+1][0]-data_interval, 0]
-                i+=2
-              else
-                i+=1
-              end
-            end
-          end
-        end
-        
-        devs<<[id, data]
-      rescue Exception=>e
-        #NOP
-      end
-    end
-       
-    @dataCount=0
-    @chart=LazyHighCharts::HighChart.new('graph') do |f|
-      f.xAxis({
-        ordinal: false,
-        dateTimeLabelFormats: {
-          minute: '%H:%M',
-          hour: '%H:%M',
-          day: '%b %e',
-          week: '%b %e',
-          month: '%Y %b',
-          year: '%Y'
-        },
-        labels: {
-          style: {
-            fontSize: '150%'
-          },
-          step: 3,
-          rotation: 45
-        }
-      })
-      
-      f.yAxis min: 0 
-      
-      f.rangeSelector(
-        buttons: [
-          {type: 'day', count: 1, text: '1天'},
-          {type: 'week', count: 1, text: '1周'},
-          {type: 'month', count: 1, text: '1月'}
-        ],
-        selected: 0
-      )
-      
-      f.tooltip({
-        valueDecimals: 0
-      })
-      
-      devs.each do |p|
-        f.series name: p[0], data: p[1]
-      end
-      
-      f.legend enabled: true
-    end
-    
-    render 'chart'
+    send_admin_email "Test Mail"
   end
   
   def pre_registered_dev
@@ -339,40 +222,9 @@ class AirsnifferController < ApplicationController
     return res
   end
   
-  def chart
-    id=params[:id]
-    uid=params[:uid]
-    
-    if id.nil? or uid.nil?
-      redirect_to '/404'
-      return
-    end
-    
+  def get_all_datapoints(pdev)
+    data=[]
     begin
-      pdev=PreRegDevice.find_by dev_id: id
-      if pdev.nil?
-        render plain: 'Device not found'
-        return
-      end
-
-      name=''
-      if uid=='admin'
-        key=params[:key]
-        if key.nil? or key!=KEY
-          render plain: 'ARG ERROR!'
-          return
-        end
-        name="Device: #{pdev.dev_id}"
-      else
-        dev=Device.find_by dev_id: id, owner: uid
-        if dev.nil?
-          render plain: 'Device not found'
-          return
-        end
-        name=dev.name
-      end
-
-      data=[]
       c=''
       if Rails.root.join('device_history', pdev.dev_id).exist?
         File.open(Rails.root.join('device_history', pdev.dev_id), 'r') do |f|
@@ -434,6 +286,149 @@ class AirsnifferController < ApplicationController
           end
         end
       end
+    rescue Exception=>e
+      logger.error '[Exception] '+e.to_s
+    end
+    
+    return data
+  end
+  
+  def multichart
+    ids=[]
+    for i in 1..10
+      if params.has_key? i.to_s
+        ids<<params[i.to_s]
+      else
+        break
+      end
+    end
+    
+    if ids.size==0
+      render plain: 'Need at least 1 id'
+      return
+    end
+    
+    uid=params[:uid]
+    if uid.nil?
+      render plain: 'Need uid'
+      return
+    end
+    
+    use_admin=false
+    if uid=='admin'
+      key=params[:key]
+      if key.nil? or key!=KEY
+        render plain: 'ARG ERROR!'
+        return
+      end
+      use_admin=true
+    end
+    
+    devs=[]
+    ids.each do |id|
+      begin
+        pdev=PreRegDevice.find_by dev_id: id
+        break if pdev.nil?
+        
+        name=''
+        if use_admin
+          name="#{pdev.dev_id}"
+        else
+          dev=Device.find_by dev_id: id, owner: uid
+          if dev.nil?
+            break
+          end
+          name=dev.name
+        end
+
+        data=get_all_datapoints pdev
+        
+        devs<<[name, data]
+      rescue Exception=>e
+        #NOP
+      end
+    end
+       
+    @dataCount=0
+    @chart=LazyHighCharts::HighChart.new('graph') do |f|
+      f.xAxis({
+        ordinal: false,
+        dateTimeLabelFormats: {
+          minute: '%H:%M',
+          hour: '%H:%M',
+          day: '%b %e',
+          week: '%b %e',
+          month: '%Y %b',
+          year: '%Y'
+        },
+        labels: {
+          style: {
+            fontSize: '150%'
+          },
+          step: 3,
+          rotation: 45
+        }
+      })
+      
+      f.yAxis min: 0 
+      
+      f.rangeSelector(
+        buttons: [
+          {type: 'day', count: 1, text: '1天'},
+          {type: 'week', count: 1, text: '1周'},
+          {type: 'month', count: 1, text: '1月'}
+        ],
+        selected: 0
+      )
+      
+      f.tooltip({
+        valueDecimals: 0
+      })
+      
+      devs.each do |p|
+        f.series name: p[0], data: p[1]
+      end
+      
+      f.legend enabled: true
+    end
+    
+    render 'chart'
+  end
+  
+  def chart
+    id=params[:id]
+    uid=params[:uid]
+    
+    if id.nil? or uid.nil?
+      redirect_to '/404'
+      return
+    end
+    
+    begin
+      pdev=PreRegDevice.find_by dev_id: id
+      if pdev.nil?
+        render plain: 'Device not found'
+        return
+      end
+
+      name=''
+      if uid=='admin'
+        key=params[:key]
+        if key.nil? or key!=KEY
+          render plain: 'ARG ERROR!'
+          return
+        end
+        name="Device: #{pdev.dev_id}"
+      else
+        dev=Device.find_by dev_id: id, owner: uid
+        if dev.nil?
+          render plain: 'Device not found'
+          return
+        end
+        name=dev.name
+      end
+      
+      data=get_all_datapoints pdev
         
       @dataCount=data.size
       @chart=LazyHighCharts::HighChart.new('graph') do |f|
@@ -550,45 +545,45 @@ class AirsnifferController < ApplicationController
   def data_retrieve
     ret="[#{Time.now.to_s}]\n"
     PreRegDevice.find_each do |dev|
-      3.times do
-        begin
-          data=[]
-          if dev.last_retrieve_time.nil?
-            url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour}"
-          else
-            url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour&start=#{dev.last_retrieve_time}"
-          end
-          url=URI.encode url
-          url=URI.parse url
-          req=Net::HTTP::Get.new url.to_s
-          req["X-ApiKey"]=dev.api_key
-          res=Net::HTTP.start(url.host, url.port){|http|http.request req}
-          j=JSON.parse res.body
-        
-          unless j.has_key? 'datapoints'
-            ret+="0 data points retrieved for device_id: #{dev.dev_id}\n"
-            break
-          end
-            
-          j['datapoints'].each do |d|
-            v=d['value']
-            t=d['at']
-            x=DateTime.strptime t, '%FT%T.%LZ'
-            data<<[x.to_time.to_i*1000, v.to_i]
-          end
-          
-          File.open(Rails.root.join('device_history', dev.dev_id), 'a') do |f|
-            data.each do |p|
-              f.write "[#{p[0]},#{p[1]}],"
-            end
-          end
-          
-          ret+="#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
-          break
-        rescue Exception=>e
-          logger.error '[Exception] '+e.to_s
-          ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
+      times=0
+      begin
+        data=[]
+        if dev.last_retrieve_time.nil?
+          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour}"
+        else
+          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour&start=#{dev.last_retrieve_time}"
         end
+        url=URI.encode url
+        url=URI.parse url
+        req=Net::HTTP::Get.new url.to_s
+        req["X-ApiKey"]=dev.api_key
+        res=Net::HTTP.start(url.host, url.port){|http|http.request req}
+        j=JSON.parse res.body
+      
+        unless j.has_key? 'datapoints'
+          ret+="0 data points retrieved for device_id: #{dev.dev_id}\n"
+          next
+        end
+          
+        j['datapoints'].each do |d|
+          v=d['value']
+          t=d['at']
+          x=DateTime.strptime t, '%FT%T.%LZ'
+          data<<[x.to_time.to_i*1000, v.to_i]
+        end
+        
+        File.open(Rails.root.join('device_history', dev.dev_id), 'a') do |f|
+          data.each do |p|
+            f.write "[#{p[0]},#{p[1]}],"
+          end
+        end
+        
+        ret+="#{data.size} data points retrieved for device_id: #{dev.dev_id}\n"
+      rescue Exception=>e
+        logger.error '[Exception] '+e.to_s
+        ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
+        times+=1
+        retry if times<=3
       end
       
       if dev
@@ -817,6 +812,18 @@ class AirsnifferController < ApplicationController
             return wx_article_responce_builder arts
           else
             return wx_text_responce_builder '未能获得曲线，请重试'
+          end
+        when /\A(比较)((?:[[:space:]].+?)*)\Z/
+          args=$2.strip.split
+          
+          if @devs.size==0
+            return wx_text_responce_builder '没有注册设备'
+          end
+          
+          @devs.first(10).each do |dev|
+            url=URI.encode "http://115.29.178.169/airsniffer/multichart/#{@uId}/#{dev.dev_id}"
+            num+=1
+            arts<<{text: dev.name, url: url}
           end
         else
           return wx_text_responce_builder '？'

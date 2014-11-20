@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   
   get 'airsniffer/graph/:uid/:id'=>'airsniffer#graph'
   get 'airsniffer/chart/:uid/:id'=>'airsniffer#chart'
+  get 'airsniffer/multichart/:uid'=>'airsniffer#multichart'
   
   get 'airsniffer/force_retrieve'=>'airsniffer#force_retrieve'
   get 'airsniffer/data_retrieve'=>'airsniffer#data_retrieve'
