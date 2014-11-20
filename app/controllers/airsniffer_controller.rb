@@ -583,7 +583,7 @@ class AirsnifferController < ApplicationController
         logger.error '[Exception] '+e.to_s
         ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
         times+=1
-        retry if times<=3
+        retry if times<3
       end
       
       if dev
