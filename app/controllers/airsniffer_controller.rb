@@ -21,17 +21,24 @@ class AirsnifferController < ApplicationController
   def send_admin_email(content)
     tag="Air Sniffer Server Report\n"
     content=tag+content+"\n"
-    url="http://wzyemailservice.appsp0t.com"
+    
+    url="http://wzyemailservice.appsp0t.com?body=#{content}"
     url=URI.encode url
     url=URI.parse url
     req=Net::HTTP::Post.new url.to_s
-    req.body="body=#{content}"
     res=Net::HTTP.start(url.host, url.port){|http|http.request req}
   end
   
   def test_req
-    send_admin_email "Test"
-    render plain: params.inspect
+    ids=[]
+    for i in 1..10
+      if params.has_key? i.to_s
+        ids<<params[i.to_s]
+      else
+        break
+      end
+    end
+    render plain: ids.inspect
   end
   
   def pre_registered_dev
