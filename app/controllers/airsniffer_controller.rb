@@ -244,9 +244,9 @@ class AirsnifferController < ApplicationController
         data<<[d[0],d[1]]
       end
       if pdev.last_retrieve_time.nil?
-        url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&duration=6hour"
+        url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&duration=4hour"
       else
-        url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&start=#{pdev.last_retrieve_time}"
+        url="http://api.xively.com/v2/feeds/#{pdev.feed_id}/datastreams/PM25?&interval=0&duration=4hour&start=#{pdev.last_retrieve_time}"
       end
       url=URI.encode url
       url=URI.parse url
@@ -429,7 +429,7 @@ class AirsnifferController < ApplicationController
       end
       
       data=get_all_datapoints pdev
-        
+      
       @dataCount=data.size
       @chart=LazyHighCharts::HighChart.new('graph') do |f|
         f.title({
@@ -508,9 +508,8 @@ class AirsnifferController < ApplicationController
         req["X-ApiKey"]=dev.api_key
         res=Net::HTTP.start(url.host, url.port){|http|http.request req}
         j=JSON.parse res.body
-
         #ret+="Retrieve data end=#{endT.strftime '%FT%RZ'} #{j.inspect}\n"
-
+        endT-=sixH
         next unless j.has_key? 'datapoints'
         
         td=[]
@@ -521,7 +520,6 @@ class AirsnifferController < ApplicationController
           td<<[x.to_time.to_i*1000, v.to_i]
         end
         data=td.concat data
-        endT-=sixH
       end
         
       File.open(Rails.root.join('device_history', dev.dev_id), 'w') do |f|
@@ -546,12 +544,15 @@ class AirsnifferController < ApplicationController
     ret="[#{Time.now.to_s}]\n"
     PreRegDevice.find_each do |dev|
       times=0
+      lastRetrieveTime=dev.last_retrieve_time
+      dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
+      dev.save
       begin
         data=[]
         if dev.last_retrieve_time.nil?
           url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour}"
         else
-          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour&start=#{dev.last_retrieve_time}"
+          url="http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25?&interval=0&duration=4hour&start=#{lastRetrieveTime}"
         end
         url=URI.encode url
         url=URI.parse url
@@ -559,7 +560,6 @@ class AirsnifferController < ApplicationController
         req["X-ApiKey"]=dev.api_key
         res=Net::HTTP.start(url.host, url.port){|http|http.request req}
         j=JSON.parse res.body
-      
         unless j.has_key? 'datapoints'
           ret+="0 data points retrieved for device_id: #{dev.dev_id}\n"
           next
@@ -584,11 +584,6 @@ class AirsnifferController < ApplicationController
         ret+="Exception when retrieving data points for device_id: #{dev.dev_id}\n\t#{e.to_s}\n"
         times+=1
         retry if times<3
-      end
-      
-      if dev
-        dev.last_retrieve_time=Time.now.utc.strftime '%FT%RZ'
-        dev.save
       end
     end
     render plain: ret
