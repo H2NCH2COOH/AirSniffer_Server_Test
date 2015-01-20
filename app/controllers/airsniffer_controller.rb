@@ -536,7 +536,7 @@ class AirsnifferController < ApplicationController
           @devs.each do |dev|
             text+="#{dev.name}:\n"
             dp=dev_get_device dev.dev_id, Time.now.strftime('%F %R'), '30'
-            if dp[-1]
+            if dp and dp[-1]
               pm25=convert dp[-1][1][PM25RAW_KEY], dev.unit_type
               text+="  PM2.5: #{pm25}\n"
               if dp[-1][1][TEMP_KEY]
