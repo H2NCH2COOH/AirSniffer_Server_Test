@@ -532,6 +532,7 @@ class AirsnifferController < ApplicationController
             return wx_text_responce_builder '没有注册设备'
           end
           
+          text=""
           @devs.each do |dev|
             text+="#{dev.name}:\n"
             dp=dev_get_device dev.dev_id, Time.now.strftime('%F %R'), '30'
