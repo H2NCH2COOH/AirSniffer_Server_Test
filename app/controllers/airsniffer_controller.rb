@@ -61,7 +61,7 @@ class AirsnifferController < ApplicationController
       when UNIT_TYPE_PCS
         return raw*60000.0
       when UNIT_TYPE_UG
-        return raw*0.05
+        return raw*3000
       else
         logger.error 'Data convert: unknown unit type'
         return 0
@@ -201,101 +201,7 @@ class AirsnifferController < ApplicationController
     end
   end
   
-  def wxhandler
-    body=request.body.read
-    puts body
-    
-    doc=REXML::Document.new body
-    
-    @myId=REXML::XPath.first(doc, '/xml/ToUserName').text
-    @uId=REXML::XPath.first(doc, '/xml/FromUserName').text
-    msgType=REXML::XPath.first(doc, '/xml/MsgType').text
-    
-    @devs=Device.where owner: @uId
-    
-    if msgType.eql? 'text'
-      content=REXML::XPath.first(doc, '/xml/Content').text
-      ret=text_msg_handler content
-      render plain: ret
-    else
-      #DO Nothing
-      render plain: ''
-    end
-  end
-  
-  def wxhandler_get
-    ret=check_wx_sig
-    render plain: ret
-  end
-  
-  def check_wx_sig
-    sig=params[:signature]
-    time=params[:timestamp]
-    nonce=params[:nonce]
-    echo=params[:echostr]
-    
-    if sig.nil? or time.nil? or nonce.nil? or echo.nil?
-      return 'ERROR!'
-    end
-    
-    array=[TOKEN, time, nonce].sort
-    str=array.join
-    hash=Digest::SHA1.hexdigest str
-    if hash.eql? sig
-      return echo
-    else
-      return 'ERROR!'
-    end
-  end
-  
-  def wx_text_responce_builder text
-    time=Time.now.to_i
-    
-    res=<<-eos
-<xml>
-  <ToUserName><![CDATA[#{@uId}]]></ToUserName>
-  <FromUserName><![CDATA[#{@myId}]]></FromUserName>
-  <CreateTime>#{time}</CreateTime>
-  <MsgType><![CDATA[text]]></MsgType>
-  <Content><![CDATA[#{text}]]></Content>
-</xml>
-    eos
-    
-    return res
-  end
-  
-  def wx_article_responce_builder(articles)
-    time=Time.now.to_i
-    
-    items=''
-    articles.each do |a|
-      items+=<<-eos
-    <item>
-      <Title><![CDATA[#{a[:text]}]]></Title> 
-      #{"<PicUrl><![CDATA[#{a[:pic]}]]></PicUrl>" if a[:pic]}
-      <Url><![CDATA[#{a[:url]}]]></Url>
-    </item>
-    
-      eos
-    end
-    
-    res=<<-eos
-<xml>
-  <ToUserName><![CDATA[#{@uId}]]></ToUserName>
-  <FromUserName><![CDATA[#{@myId}]]></FromUserName>
-  <CreateTime>#{time}</CreateTime>
-  <MsgType><![CDATA[news]]></MsgType>
-  <ArticleCount>#{articles.size}</ArticleCount>
-  <Articles>
-#{items}
-  </Articles>
-</xml>
-    eos
-    
-    return res
-  end
-  
-  def generate_data_points_for_highstock(dev, endTime=nil, duration=nil)
+    def generate_data_points_for_highstock(dev, endTime=nil, duration=nil)
     data=[]
     begin
       data=dev_get_device(dev.dev_id, endTime, duration).collect do |d|
@@ -495,6 +401,100 @@ class AirsnifferController < ApplicationController
     end
   end
   
+  def wxhandler
+    body=request.body.read
+    puts body
+    
+    doc=REXML::Document.new body
+    
+    @myId=REXML::XPath.first(doc, '/xml/ToUserName').text
+    @uId=REXML::XPath.first(doc, '/xml/FromUserName').text
+    msgType=REXML::XPath.first(doc, '/xml/MsgType').text
+    
+    @devs=Device.where owner: @uId
+    
+    if msgType.eql? 'text'
+      content=REXML::XPath.first(doc, '/xml/Content').text
+      ret=text_msg_handler content
+      render plain: ret
+    else
+      #DO Nothing
+      render plain: ''
+    end
+  end
+  
+  def wxhandler_get
+    ret=check_wx_sig
+    render plain: ret
+  end
+  
+  def check_wx_sig
+    sig=params[:signature]
+    time=params[:timestamp]
+    nonce=params[:nonce]
+    echo=params[:echostr]
+    
+    if sig.nil? or time.nil? or nonce.nil? or echo.nil?
+      return 'ERROR!'
+    end
+    
+    array=[TOKEN, time, nonce].sort
+    str=array.join
+    hash=Digest::SHA1.hexdigest str
+    if hash.eql? sig
+      return echo
+    else
+      return 'ERROR!'
+    end
+  end
+  
+  def wx_text_responce_builder text
+    time=Time.now.to_i
+    
+    res=<<-eos
+<xml>
+  <ToUserName><![CDATA[#{@uId}]]></ToUserName>
+  <FromUserName><![CDATA[#{@myId}]]></FromUserName>
+  <CreateTime>#{time}</CreateTime>
+  <MsgType><![CDATA[text]]></MsgType>
+  <Content><![CDATA[#{text}]]></Content>
+</xml>
+    eos
+    
+    return res
+  end
+  
+  def wx_article_responce_builder(articles)
+    time=Time.now.to_i
+    
+    items=''
+    articles.each do |a|
+      items+=<<-eos
+    <item>
+      <Title><![CDATA[#{a[:text]}]]></Title> 
+      #{"<PicUrl><![CDATA[#{a[:pic]}]]></PicUrl>" if a[:pic]}
+      <Url><![CDATA[#{a[:url]}]]></Url>
+    </item>
+    
+      eos
+    end
+    
+    res=<<-eos
+<xml>
+  <ToUserName><![CDATA[#{@uId}]]></ToUserName>
+  <FromUserName><![CDATA[#{@myId}]]></FromUserName>
+  <CreateTime>#{time}</CreateTime>
+  <MsgType><![CDATA[news]]></MsgType>
+  <ArticleCount>#{articles.size}</ArticleCount>
+  <Articles>
+#{items}
+  </Articles>
+</xml>
+    eos
+    
+    return res
+  end
+  
   def text_msg_handler(content)
     begin
       case content
@@ -538,7 +538,7 @@ class AirsnifferController < ApplicationController
             dp=dev_get_device dev.dev_id, Time.now.strftime('%F %R'), '30'
             if dp and dp[-1]
               pm25=convert dp[-1][1][PM25RAW_KEY], dev.unit_type
-              text+="-PM2.5: #{pm25.to_i}\n"
+              text+="-PM2.5: #{pm25.to_i}#{" ug" if dev.unit_type==UNIT_TYPE_UG}\n"
               if dp[-1][1][TEMP_KEY]
                 text+="-温度: #{dp[-1][1][TEMP_KEY]}\n"
               end
@@ -574,13 +574,6 @@ class AirsnifferController < ApplicationController
           arts=[]
           num=0
           
-#          @devs.first(10).each do |dev| #10 is weixin limit for article responce
-#            url=URI.encode("http://115.29.178.169/airsniffer/graph/#{@uId}/#{dev.dev_id}?&g=true&b=true&timezone=8&duration=#{dur}&end=#{Time.now.utc.strftime '%FT%RZ'}")
-#            #&scale=manual&min=0&max=20000
-#            num+=1
-#            arts<<{text: dev.name, pic: url, url: url}
-#          end
-
           @devs.first(10).each do |dev| #10 is weixin limit for article responce
             url=URI.encode "http://115.29.178.169/airsniffer/chart/#{@uId}/#{dev.dev_id}"
             num+=1
@@ -592,6 +585,32 @@ class AirsnifferController < ApplicationController
           else
             return wx_text_responce_builder '未能获得曲线，请重试'
           end
+        when /\A令(.+)的(.+)为(.+)\Z/
+          name=$1
+          attr=$2
+          value=$3
+          
+          dev=Device.find_by name: name, owner: @uId
+          if dev.nil?
+            return wx_text_responce_builder '设备不存在或未注册'
+          end
+          
+          case attr
+            when '单位'
+              case value
+                when /pcs|颗粒数/
+                  dev.unit_type=UNIT_TYPE_PCS
+                  dev.save
+                when /ug|微克|微克每立方米/
+                  dev.unit_type=UNIT_TYPE_UG
+                  dev.save
+                else
+                  return wx_text_responce_builder '无效值'
+              end
+            else
+              return wx_text_responce_builder '无效参数'
+          end
+          return wx_text_responce_builder '？'
         else
           return wx_text_responce_builder '？'
       end
