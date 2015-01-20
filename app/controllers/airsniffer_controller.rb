@@ -128,9 +128,11 @@ class AirsnifferController < ApplicationController
     j=JSON.parse res.body
     
     if j['code']==200
-      return j['data'].collect do |d|
+      ret=j['data'].collect do |d|
         [DateTime.strptime(d['time'], '%F %T'), d['value']]
       end
+      ret.reverse!
+      return ret
     else
       return nil
     end
