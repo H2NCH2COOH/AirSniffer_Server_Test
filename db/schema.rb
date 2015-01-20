@@ -11,20 +11,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20140929032604) do
+ActiveRecord::Schema.define(version: 20150118121027) do
 
   create_table "devices", force: true do |t|
     t.string "dev_id"
-    t.string "feed_id"
-    t.string "api_key"
     t.string "owner"
     t.string "name"
+    t.string "unit_type"
   end
 
   create_table "pre_reg_devices", force: true do |t|
     t.string "dev_id"
-    t.string "feed_id"
-    t.string "api_key"
   end
 
 end

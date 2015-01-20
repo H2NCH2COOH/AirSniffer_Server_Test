@@ -132,6 +132,7 @@ class AirsnifferController < ApplicationController
         [DateTime.strptime(d['time'], '%F %T'), d['value']]
       end
       ret.reverse!
+      #logger.debug ret.inspect
       return ret
     else
       return nil
@@ -297,7 +298,7 @@ class AirsnifferController < ApplicationController
     data=[]
     begin
       data=dev_get_device(dev.dev_id, endTime, duration).collect do |d|
-        [d[0].to_time_to_i*1000, convert(dev.unit_type, d[1][PM25RAW_KEY])]
+        [d[0].to_time.to_i*1000, convert(dev.unit_type, d[1][PM25RAW_KEY])]
       end
       
       data_interval=5*60*1000
