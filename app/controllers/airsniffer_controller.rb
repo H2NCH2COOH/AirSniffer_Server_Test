@@ -36,6 +36,7 @@ class AirsnifferController < ApplicationController
   DEVICE_SERVER='http://127.0.0.1'
   
   PM25RAW_KEY='pm25raw'
+  TEMP_KEY='temp'
   
   UNIT_TYPE_PCS='pcs'
   UNIT_TYPE_UG='ug'
@@ -55,7 +56,7 @@ class AirsnifferController < ApplicationController
     render plain: "Test"
   end
   
-  def convert(unit_type, raw)
+  def convert(raw, unit_type)
     case unit_type
       when UNIT_TYPE_PCS
         return raw*60000.0
@@ -298,7 +299,7 @@ class AirsnifferController < ApplicationController
     data=[]
     begin
       data=dev_get_device(dev.dev_id, endTime, duration).collect do |d|
-        [d[0].to_time.to_i*1000, convert(dev.unit_type, d[1][PM25RAW_KEY])]
+        [d[0].to_time.to_i*1000, convert(d[1][PM25RAW_KEY], dev.unit_type)]
       end
       
       data_interval=5*60*1000
@@ -531,15 +532,18 @@ class AirsnifferController < ApplicationController
             return wx_text_responce_builder '没有注册设备'
           end
           
-          text="当前数据：\n"
           @devs.each do |dev|
-            url=URI.encode "http://api.xively.com/v2/feeds/#{dev.feed_id}/datastreams/PM25"
-            url=URI.parse url
-            req=Net::HTTP::Get.new url.to_s
-            req["X-ApiKey"]=dev.api_key
-            res=Net::HTTP.start(url.host, url.port){|http|http.request req}
-            cvalue=JSON.parse(res.body)['current_value']
-            text+="#{dev.name}: #{cvalue.strip}\n" unless cvalue.nil?
+            text+="#{dev.name}:\n"
+            dp=dev_get_device dev.dev_id, Time.now.strftime('%F %R'), '30'
+            if dp[-1]
+              pm25=convert dp[-1][1][PM25RAW_KEY], dev.unit_type
+              text+="  PM2.5: #{pm25}\n"
+              if dp[-1][1][TEMP_KEY]
+                text+="  温度: #{dp[-1][1][TEMP_KEY]}\n"
+              end
+            else
+              text+='30分钟内无数据'
+            end
           end
           return wx_text_responce_builder text.rstrip
         when /\A(历史|图|曲线)((?:[[:space:]].+?)*)\Z/
@@ -587,22 +591,6 @@ class AirsnifferController < ApplicationController
           else
             return wx_text_responce_builder '未能获得曲线，请重试'
           end
-        when /\A(比较)((?:[[:space:]].+?)*)\Z/
-          args=$2.strip.split
-          
-          if @devs.size==0
-            return wx_text_responce_builder '没有注册设备'
-          end
-          
-          url="http://115.29.178.169/airsniffer/multichart/#{@uId}?"
-          i=1
-          @devs.first(10).each do |dev|
-            url+="#{i}=#{dev.dev_id}&"
-            i+=1
-          end
-          url=URI.encode url[0..-2]
-          
-          return wx_article_responce_builder [{text: '比较', url: url}]
         else
           return wx_text_responce_builder '？'
       end
