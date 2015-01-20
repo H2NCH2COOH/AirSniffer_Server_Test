@@ -538,12 +538,12 @@ class AirsnifferController < ApplicationController
             dp=dev_get_device dev.dev_id, Time.now.strftime('%F %R'), '30'
             if dp and dp[-1]
               pm25=convert dp[-1][1][PM25RAW_KEY], dev.unit_type
-              text+="  PM2.5: #{pm25.to_i}\n"
+              text+="-PM2.5: #{pm25.to_i}\n"
               if dp[-1][1][TEMP_KEY]
-                text+="  温度: #{dp[-1][1][TEMP_KEY]}\n"
+                text+="-温度: #{dp[-1][1][TEMP_KEY]}\n"
               end
             else
-              text+="30分钟内无数据\n"
+              text+="-30分钟内无数据\n"
             end
           end
           return wx_text_responce_builder text.rstrip
