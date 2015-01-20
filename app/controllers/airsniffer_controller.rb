@@ -595,22 +595,27 @@ class AirsnifferController < ApplicationController
             return wx_text_responce_builder '设备不存在或未注册'
           end
           
+          ret='?'
+          
           case attr
             when '单位'
               case value
                 when /pcs|颗粒数/
                   dev.unit_type=UNIT_TYPE_PCS
                   dev.save
+                  ret='设置成功'
                 when /ug|微克|微克每立方米/
                   dev.unit_type=UNIT_TYPE_UG
                   dev.save
+                  ret='设置成功'
                 else
-                  return wx_text_responce_builder '无效值'
+                  ret='无效值'
               end
             else
-              return wx_text_responce_builder '无效参数'
+              ret='无效参数'
           end
-          return wx_text_responce_builder '？'
+          
+          return wx_text_responce_builder ret
         else
           return wx_text_responce_builder '？'
       end
