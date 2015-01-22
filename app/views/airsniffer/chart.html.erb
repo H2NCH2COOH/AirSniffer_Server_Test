@@ -1,3 +1,5 @@
+<%= javascript_include_tag 'http://code.highcharts.com/stock/highstock.js' %>
+<%= javascript_include_tag 'http://code.highcharts.com/stock/modules/exporting.js' %>
 <%= high_stock("chart", @chart) do %>
   <% "Highcharts.setOptions({global: {timezoneOffset: -8*60},lang: {months: ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'],shortMonths: ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'],weekdays: ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'],rangeSelectorFrom: '从',rangeSelectorTo: '到',rangeSelectorZoom: '选择'}});".html_safe %>
 <% end %>
