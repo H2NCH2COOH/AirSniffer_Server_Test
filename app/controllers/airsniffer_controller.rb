@@ -201,18 +201,18 @@ class AirsnifferController < ApplicationController
     end
   end
   
-    def generate_data_points_for_highstock(dev, endTime=nil, duration=nil)
+  def generate_data_points_for_highstock(dev, key, endTime=nil, duration=nil)
     data=[]
     begin
       data=dev_get_device(dev.dev_id, endTime, duration).collect do |d|
-        [d[0].to_time.to_i*1000, convert(d[1][PM25RAW_KEY], dev.unit_type)]
+        [d[0].to_time.to_i*1000, convert(d[1][key], dev.unit_type)]
       end
       
       data_interval=5*60*1000
       gap_limit=1000*1000
       if data.size>0
         i=0
-        tEnd=Time.now.utc.to_i*1000
+        tEnd=Time.now.to_i*1000
         while data[i][0]<tEnd-gap_limit
           if data[i+1].nil?
             data<<[data[i][0]+data_interval, 0]
@@ -253,6 +253,7 @@ class AirsnifferController < ApplicationController
       return
     end
     
+    uid=params[:uid]
     if uid!='admin'
       render plain: 'Need to be admin'
     end
@@ -268,8 +269,8 @@ class AirsnifferController < ApplicationController
       dev=Device.find_by dev_id: id, owner: 'admin'
       next if dev.nil?
       
-      data=generate_data_points_for_highstock dev
-      devs<<[name, data] if data.size>0
+      data=generate_data_points_for_highstock dev, PM25RAW_KEY
+      devs<<[dev.name, data] if data.size>0
     end
        
     @dataCount=0
@@ -352,7 +353,7 @@ class AirsnifferController < ApplicationController
       end
       name=dev.name
       
-      data=generate_data_points_for_highstock dev
+      data=generate_data_points_for_highstock dev, PM25RAW_KEY
       
       @dataCount=data.size
       @chart=LazyHighCharts::HighChart.new('graph') do |f|
