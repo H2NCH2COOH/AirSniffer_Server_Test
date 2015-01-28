@@ -10,6 +10,7 @@ Rails.application.routes.draw do
   get 'airsniffer/data_retrieve'=>'airsniffer#data_retrieve'
   get 'airsniffer/retrieve_at/:id'=>'airsniffer#retrieve_at'
   
+  get 'airsniffer/new_device'
   get 'airsniffer/pre_register'
   get 'airsniffer/delete_device' 
   get 'airsniffer/pre_registered_dev'

@@ -169,9 +169,32 @@ class AirsnifferController < ApplicationController
     end
 
     PreRegDevice.where(dev_id: id).each{|d|d.destroy}
+    Device.where(dev_id: id).each{|d|d.destroy}
     render plain: "Device: #{id} deleted"
   end
+  
+  def new_device
+    key=params[:key]
+       
+    if key.nil? or key!=KEY
+      render plain: 'ARG ERROR!'
+      return
+    end
+    
+    while true
+      new_id=8.times.inject(""){|s|s+=Random.rand(10).to_s}
+      break if PreRegDevice.find_by(dev_id: new_id).nil?
+    end
 
+    if dev_reg_device new_id
+      PreRegDevice.create dev_id: new_id
+      Device.create dev_id: new_id, owner: 'admin', name: new_id.to_s, unit_type: UNIT_TYPE_PCS
+      render plain: "Device #{new_id} pre-registered"
+    else
+      render plain: 'Failed'
+    end
+  end
+  
   def pre_register
     id=params[:id]
     key=params[:key]
@@ -191,7 +214,7 @@ class AirsnifferController < ApplicationController
       if dev_reg_device id
         PreRegDevice.create dev_id: id
         Device.create dev_id: p.dev_id, owner: 'admin', name: id.to_s, unit_type: UNIT_TYPE_PCS
-        render plain: JSON.dump(dev_id: id, feed_id: j['feed_id'], api_key: j['apikey'])
+        render plain: "Device #{id} pre-registered"
       else
         render plain: 'Failed'
       end
@@ -205,7 +228,13 @@ class AirsnifferController < ApplicationController
     data=[]
     begin
       data=dev_get_device(dev.dev_id, endTime, duration).collect do |d|
-        [d[0].to_time.to_i*1000, convert(d[1][key], dev.unit_type)]
+        v=0
+        if key==PM25RAW_KEY
+          v=convert d[1][key], dev.unit_type
+        else
+          v=d[1][key]
+        end
+        [d[0].to_time.to_i*1000, v]
       end
       
       data_interval=5*60*1000
@@ -325,6 +354,8 @@ class AirsnifferController < ApplicationController
   def chart
     id=params[:id]
     uid=params[:uid]
+    key=params[:type]
+    key=PM25RAW_KEY if key.nil?
     
     if id.nil? or uid.nil?
       redirect_to '/404'
@@ -339,8 +370,8 @@ class AirsnifferController < ApplicationController
       end
 
       if uid=='admin'
-        key=params[:key]
-        if key.nil? or key!=KEY
+        pass=params[:key]
+        if pass.nil? or pass!=KEY
           render plain: 'ARG ERROR!'
           return
         end
@@ -353,8 +384,13 @@ class AirsnifferController < ApplicationController
       end
       name=dev.name
       
-      data=generate_data_points_for_highstock dev, PM25RAW_KEY
-      
+      data=generate_data_points_for_highstock dev, key
+      sname=''
+      if key==PM25RAW_KEY
+        sname='PM2.5'
+      else
+        sname='温度'
+      end
       @dataCount=data.size
       @chart=LazyHighCharts::HighChart.new('graph') do |f|
         f.title({
@@ -394,7 +430,7 @@ class AirsnifferController < ApplicationController
         f.tooltip({
           valueDecimals: 0
         })
-        f.series name: "PM2.5", data: data
+        f.series name: sname, data: data
       end
     rescue Exception=>e
       logger.error '[Exception] '+e.to_s
@@ -496,6 +532,17 @@ class AirsnifferController < ApplicationController
     return res
   end
   
+  def usage
+    <<-EOF
+可用命令：
+注册 <设备序列号> <名称>
+移除 <名称>
+查询
+曲线
+切换单位
+    EOF
+  end
+  
   def text_msg_handler(content)
     begin
       case content
@@ -510,6 +557,11 @@ class AirsnifferController < ApplicationController
             return wx_text_responce_builder '设备已注册'
           end
           
+          d=Device.find_by owner: @uId, name: name
+          if d
+            return wx_text_responce_builder '名称已被使用'
+          end
+          
           p=PreRegDevice.find_by dev_id: id
           if p.nil?
             return wx_text_responce_builder '设备不存在'
@@ -517,9 +569,9 @@ class AirsnifferController < ApplicationController
             Device.create dev_id: p.dev_id, owner: @uId, name: name, unit_type: UNIT_TYPE_PCS
             return wx_text_responce_builder "设备\"#{name}\"注册成功"
           end
-        when /\A移除[[:space:]]([[:digit:]]+)\Z/
-          id=$1
-          p=Device.find_by dev_id: id, owner: @uId
+        when /\A移除[[:space:]](.+)\Z/
+          name=$1
+          p=Device.find_by name: name, owner: @uId
           if p.nil?
             return wx_text_responce_builder '设备不存在或未注册'
           else
@@ -551,21 +603,9 @@ class AirsnifferController < ApplicationController
         when /\A(历史|图|曲线)((?:[[:space:]].+?)*)\Z/
           args=$2.strip.split
           
-          dur='1day'
-          
-          if args
-            if args[0]
-              m=/\A([[:digit:]]+)(hour|day|week|month|小时|天|周|月)s?\Z/.match args[0]
-              if m
-                dict={'小时'=>'hour','天'=>'day','周'=>'week','月'=>'month'}
-                if dict.has_key? m[2]
-                  u=dict[m[2]]
-                else
-                  u=m[2]
-                end
-                dur=m[1]+u
-              end
-            end
+          type=PM25RAW_KEY
+          if args and args[0] and args[0]=='温度'
+            type=TEMP_KEY
           end
           
           if @devs.size==0
@@ -576,7 +616,7 @@ class AirsnifferController < ApplicationController
           num=0
           
           @devs.first(10).each do |dev| #10 is weixin limit for article responce
-            url=URI.encode "http://115.29.178.169/airsniffer/chart/#{@uId}/#{dev.dev_id}"
+            url=URI.encode "http://115.29.178.169/airsniffer/chart/#{@uId}/#{dev.dev_id}?type=#{type}"
             num+=1
             arts<<{text: dev.name, url: url}
           end
@@ -586,6 +626,16 @@ class AirsnifferController < ApplicationController
           else
             return wx_text_responce_builder '未能获得曲线，请重试'
           end
+        when /\A切换单位\Z/
+          @devs.each do |dev|
+            if dev.unit_type==UNIT_TYPE_PCS
+              dev.unit_type=UNIT_TYPE_UG
+            else
+              dev.unit_type=UNIT_TYPE_PCS
+            end
+            dev.save
+          end
+          return wx_text_responce_builder '切换成功'
         when /\A令(.+)的(.+)为(.+)\Z/
           name=$1
           attr=$2
@@ -618,7 +668,7 @@ class AirsnifferController < ApplicationController
           
           return wx_text_responce_builder ret
         else
-          return wx_text_responce_builder '？'
+          return wx_text_responce_builder usage
       end
     rescue Exception=>e
       logger.error '[Exception] '+e.to_s
