@@ -1,3 +1,4 @@
+require 'date'
 require 'digest/sha1'
 require 'rexml/document'
 require 'net/http'
@@ -5,6 +6,7 @@ require 'json'
 require 'lazy_high_charts'
 require 'openssl'
 require 'mail'
+#require 'reloader/sse'
 #=============================================================================#
 #Mail setup
 options = { :address              => "smtp.gmail.com",
@@ -27,6 +29,8 @@ class PreRegDevice < ActiveRecord::Base
 end
 
 class AirsnifferController < ApplicationController
+  #include ActionController::Live
+  
   TOKEN='AirSniffer'
   KEY='7328956043759284757545839'
   XIVELY_PRODUCT_ID='ioV3xb4qcXATBqOZXccU'
@@ -49,6 +53,23 @@ class AirsnifferController < ApplicationController
       from 'Air Sniffer Server Report <wzypublic@gmail.com>'
       subject 'Air Sniffer Server Report'
       body content
+    end
+  end
+  
+  def sse
+    response.headers['Content-Type']='text/event-stream'
+    sse=Reloader::SSE.new response.stream
+    
+    begin
+      loop do
+        obj={time: Time.now}
+        sse.write obj
+        sleep 3
+      end
+    rescue IOError
+      #Client disconnects
+    ensure
+      sse.close
     end
   end
   
@@ -241,7 +262,13 @@ class AirsnifferController < ApplicationController
       gap_limit=1000*1000
       if data.size>0
         i=0
-        tEnd=Time.now.to_i*1000
+        if endTime
+          tEnd=DateTime.strptime(endTime, '%F %T').to_time
+        else
+          tEnd=Time.now
+        end
+        tEnd=tEnd.to_i*1000
+
         while data[i][0]<tEnd-gap_limit
           if data[i+1].nil?
             data<<[data[i][0]+data_interval, 0]
@@ -249,10 +276,13 @@ class AirsnifferController < ApplicationController
             break
           else
             if data[i+1][0]-data[i][0]>gap_limit
-              data.insert i+1, [data[i][0]+data_interval, 0]
-              i+=1
-              data.insert i+1, [data[i+1][0]-data_interval, 0]
-              i+=2
+              tZero=data[i][0]
+              tZeroEnd=data[i+1][0]
+              while tZero+data_interval<tZeroEnd
+                tZero+=data_interval
+                data.insert i+1, [tZero, 0]
+                i+=1
+              end
             else
               i+=1
             end
@@ -298,7 +328,7 @@ class AirsnifferController < ApplicationController
       dev=Device.find_by dev_id: id, owner: 'admin'
       next if dev.nil?
       
-      data=generate_data_points_for_highstock dev, PM25RAW_KEY
+      data=generate_data_points_for_highstock dev, PM25RAW_KEY, Time.now.strftime('%F %T'), 60*24*32
       devs<<[dev.name, data] if data.size>0
     end
        
@@ -384,7 +414,7 @@ class AirsnifferController < ApplicationController
       end
       name=dev.name
       
-      data=generate_data_points_for_highstock dev, key
+      data=generate_data_points_for_highstock dev, key, Time.now.strftime('%F %T'), 60*24*32
       sname=''
       if key==PM25RAW_KEY
         sname='PM2.5'
